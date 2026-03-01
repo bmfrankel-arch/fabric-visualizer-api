@@ -68,23 +68,6 @@
     "pieces": 3
   },
   {
-    "name": "Finn 6-Piece Sectional",
-    "sku": "finn-6-piece-sectional",
-    "price": 3620.0,
-    "compare_at_price": 4259.0,
-    "on_sale": true,
-    "collection": "Finn",
-    "color": "Stone",
-    "url": "https://schneidermans.com/products/finn-6-piece-sectional",
-    "image_url": "https://cdn.shopify.com/s/files/1/0014/4359/4306/files/Finn6Sectional-MuseStone.jpg?v=1733254988",
-    "category": "Living",
-    "type": "Sectional",
-    "brand": "Jonathan Louis",
-    "material": "Fabric",
-    "configuration": "6-Piece",
-    "pieces": 6
-  },
-  {
     "name": "Gregory 3-Piece Sectional",
     "sku": "gregory-3-piece-sectional",
     "price": 2889.0,
@@ -185,23 +168,6 @@
     "material": "Fabric",
     "configuration": "2-Piece",
     "pieces": 2
-  },
-  {
-    "name": "Noah 5-Piece Sectional",
-    "sku": "noah-5-piece-sectional",
-    "price": 4572.0,
-    "compare_at_price": 5379.0,
-    "on_sale": true,
-    "collection": "Noah",
-    "color": "Varies",
-    "url": "https://schneidermans.com/products/noah-5-piece-sectional",
-    "image_url": "https://cdn.shopify.com/s/files/1/0014/4359/4306/files/S0024-K1A.jpg?v=1749159583",
-    "category": "Living",
-    "type": "Sectional",
-    "brand": "Jonathan Louis",
-    "material": "Fabric",
-    "configuration": "5-Piece",
-    "pieces": 5
   },
   {
     "name": "Ronan Sectional",
@@ -455,23 +421,6 @@
     "type": "Chair",
     "brand": "Jonathan Louis",
     "material": "Fabric",
-    "configuration": "Stationary",
-    "pieces": 1
-  },
-  {
-    "name": "Brynne Leather Accent Chair",
-    "sku": "brynne-leather-accent-chair",
-    "price": 1629.0,
-    "compare_at_price": 2039.0,
-    "on_sale": true,
-    "collection": "Brynne",
-    "color": "Varies",
-    "url": "https://seldens.com/products/brynne-leather-accent-chair",
-    "image_url": "https://cdn.shopify.com/s/files/1/0383/2833/6523/files/BRYNNELEATHERACCENTCHAIR-PROFILE22451.webp?v=1771025540",
-    "category": "Living",
-    "type": "Chair",
-    "brand": "Jonathan Louis",
-    "material": "Leather",
     "configuration": "Stationary",
     "pieces": 1
   },
@@ -796,23 +745,6 @@
     "brand": "Jonathan Louis",
     "material": "Fabric",
     "configuration": "Swivel",
-    "pieces": 1
-  },
-  {
-    "name": "Caleb Leather Ottoman",
-    "sku": "caleb-leather-ottoman",
-    "price": 1189.0,
-    "compare_at_price": 1399.0,
-    "on_sale": true,
-    "collection": "Caleb",
-    "color": "Varies",
-    "url": "https://schneidermans.com/products/caleb-leather-ottoman",
-    "image_url": "https://cdn.shopify.com/s/files/1/0014/4359/4306/files/J26L081739XXX-BRLO00S.jpg?v=1748557673",
-    "category": "Living",
-    "type": "Ottoman",
-    "brand": "Jonathan Louis",
-    "material": "Leather",
-    "configuration": "Stationary",
     "pieces": 1
   }
 ]

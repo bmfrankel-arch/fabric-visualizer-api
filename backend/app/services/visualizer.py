@@ -27,7 +27,18 @@ IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 async def download_image(url: str) -> Path:
-    """Download an image URL to a local cache file. Returns cached path."""
+    """Download an image URL to a local cache file. Returns cached path.
+
+    Also handles local /uploads/ paths (from custom frame uploads) by
+    resolving them directly against the upload directory.
+    """
+    # Local file uploaded to this server — resolve directly, no HTTP needed
+    if url.startswith("/uploads/"):
+        local_path = settings.upload_dir / url[len("/uploads/"):]
+        if local_path.exists():
+            return local_path
+        raise FileNotFoundError(f"Local upload not found: {url}")
+
     url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
     ext = Path(url.split("?")[0]).suffix or ".jpg"
     cached = IMAGE_CACHE_DIR / f"{url_hash}{ext}"
@@ -126,13 +137,26 @@ def _create_upholstery_mask(furniture_img: Image.Image) -> np.ndarray:
     return refined_mask
 
 
-def _tile_fabric(fabric_img: Image.Image, target_size: tuple[int, int], scale: float = 0.5) -> Image.Image:
-    """Tile fabric texture to fill the target size."""
+def _tile_fabric(fabric_img: Image.Image, target_size: tuple[int, int], scale: float = None) -> Image.Image:
+    """Tile fabric texture to fill the target size.
+
+    If scale is None (default), automatically compute a scale so the pattern
+    repeats ~12 times across the furniture width.  Dorell fabric photos are
+    macro close-ups that show only a few centimetres of cloth; on a real sofa
+    the same pattern tiles many times, so we need to shrink each tile
+    significantly relative to the furniture image dimensions.
+    """
+    tw, th = target_size
+
+    if scale is None:
+        # Target ~12 repeats across furniture width → realistic upholstery density
+        target_tile_w = tw / 12.0
+        scale = target_tile_w / max(1, fabric_img.width)
+
     fw = max(1, int(fabric_img.width * scale))
     fh = max(1, int(fabric_img.height * scale))
     fabric_scaled = fabric_img.resize((fw, fh), Image.LANCZOS)
 
-    tw, th = target_size
     tiled = Image.new("RGBA", (tw, th))
     for y in range(0, th, fh):
         for x in range(0, tw, fw):
@@ -216,6 +240,263 @@ def apply_fabric_to_furniture(
     result_img.save(RESULTS_DIR / result_filename, "PNG")
 
     return result_filename
+
+
+async def apply_fabric_openai(
+    fabric_path: Path,
+    furniture_path: Path,
+    pillow_fabric_path: "Path | None" = None,
+    pillow_fabric_name: str = "",
+    main_fabric_name: str = "",
+) -> str:
+    """
+    Direct AI fabric application — mirrors what ChatGPT does natively.
+
+    The previous hybrid approach (CV composite → OpenAI refinement) produced
+    flat, artificial-looking results because OpenAI was handed a degraded
+    pre-processed image instead of the original clean furniture photo.
+
+    This version sends the ORIGINAL furniture photograph + fabric swatch
+    directly to gpt-image-1 with no pre-processing, giving the model the
+    same high-quality inputs it gets in ChatGPT — which is why ChatGPT
+    results look so much better.
+
+    Pass 1 (always):
+        Original furniture photo + body fabric swatch → OpenAI applies fabric
+        to all upholstered surfaces with realistic drape and photorealism.
+
+    Pass 2 (only when pillow_fabric_path is given):
+        Pass-1 result + pillow fabric swatch → OpenAI adds/replaces accent
+        pillows only. Body fabric and everything else is left untouched.
+
+    Falls back to plain CV pipeline if OpenAI key is absent or call fails.
+    Requires FV_OPENAI_API_KEY environment variable.
+    """
+    if not settings.openai_api_key:
+        return apply_fabric_to_furniture(fabric_path, furniture_path)
+
+    try:
+        import base64
+        import os
+        import tempfile
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+        has_pillows = pillow_fabric_path is not None and pillow_fabric_path.exists()
+        print(f"[OpenAI] apply_fabric_openai v7-direct starting (pillows={'yes' if has_pillows else 'no'})")
+
+        # ── Helpers: resize and write to temp file ─────────────────────
+        def _resize_and_save(img: Image.Image, max_px: int) -> tempfile.NamedTemporaryFile:
+            img = img.convert("RGB")
+            if max(img.size) > max_px:
+                ratio = max_px / max(img.size)
+                img = img.resize(
+                    (int(img.width * ratio), int(img.height * ratio)),
+                    Image.LANCZOS,
+                )
+            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            img.save(tmp, format="PNG")
+            tmp.flush(); tmp.close()
+            return tmp
+
+        # ── PASS 1 ─ Responses API (same pipeline as ChatGPT) ──────────
+        # images.edit with a mask causes the model to regenerate masked pixels
+        # using surrounding context (e.g. gray frame → gray fabric), ignoring
+        # the fabric swatch.  The Responses API instead gives the model a
+        # holistic view of both images simultaneously and generates a full
+        # transformation — exactly what ChatGPT does.
+
+        def _b64(path: Path, max_px: int = 1024) -> str:
+            """Load, resize, and base64-encode an image as PNG."""
+            img = Image.open(path).convert("RGB")
+            if max(img.size) > max_px:
+                r = max_px / max(img.size)
+                img = img.resize(
+                    (int(img.width * r), int(img.height * r)), Image.LANCZOS
+                )
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            return base64.b64encode(buf.getvalue()).decode()
+
+        furn_b64   = _b64(furniture_path, 1024)
+        fabric_b64 = _b64(fabric_path, 1024)
+
+        body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
+
+        body_prompt = (
+            f"Image 1 is a sofa/sectional photograph. "
+            f"Image 2 is a fabric swatch for {body_label}.\n\n"
+            f"Reupholster the sofa by applying {body_label} from Image 2 to ALL "
+            "upholstered surfaces: seat cushions, back cushions, and armrests.\n\n"
+            "Requirements:\n"
+            "  • Match the exact color, weave, and pattern of Image 2.\n"
+            "  • Realistic fabric drape — natural folds, wrinkles, tension lines.\n"
+            "  • Stitched seam lines and piping where structurally appropriate.\n"
+            "  • Lighting consistent with the room (highlights, shadows).\n"
+            "  • Result indistinguishable from a professional furniture catalog photo.\n\n"
+            "Preserve exactly: furniture silhouette, legs, frame, background, room setting."
+        )
+
+        try:
+            resp1 = await client.responses.create(
+                model="gpt-4o",
+                input=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text",  "text": body_prompt},
+                        {"type": "input_image", "image_url": f"data:image/png;base64,{furn_b64}"},
+                        {"type": "input_image", "image_url": f"data:image/png;base64,{fabric_b64}"},
+                    ],
+                }],
+                tools=[{"type": "image_generation"}],
+            )
+            pass1_data = None
+            for item in resp1.output:
+                if item.type == "image_generation_call":
+                    pass1_data = base64.b64decode(item.result)
+                    break
+            if pass1_data is None:
+                raise ValueError("Responses API returned no image")
+        except Exception as e_resp:
+            # Fallback: images.edit without mask (simpler, still decent)
+            print(f"[OpenAI] Responses API failed ({e_resp}), falling back to images.edit…")
+            furn_tmp   = _resize_and_save(Image.open(furniture_path), 1024)
+            fabric_tmp = _resize_and_save(Image.open(fabric_path),    1024)
+            try:
+                with open(furn_tmp.name, "rb") as ff, open(fabric_tmp.name, "rb") as sf:
+                    r = await client.images.edit(
+                        model="gpt-image-1",
+                        image=[ff, sf],
+                        prompt=body_prompt,
+                    )
+                pass1_data = base64.b64decode(r.data[0].b64_json)
+            finally:
+                os.unlink(furn_tmp.name)
+                os.unlink(fabric_tmp.name)
+
+        print("[OpenAI] Pass 1 (body fabric) done")
+
+        # If no pillow fabric, save Pass-1 result and return
+        if not has_pillows:
+            result_filename = f"viz_oai_{uuid.uuid4().hex}.png"
+            with open(RESULTS_DIR / result_filename, "wb") as f:
+                f.write(pass1_data)
+            print(f"[OpenAI] done (no pillows): {result_filename}")
+            return result_filename
+
+        # ── PASS 2 ─ Accent pillows only ──────────────────────────────
+        pass1_pil  = Image.open(BytesIO(pass1_data))
+        pillow_pil = Image.open(pillow_fabric_path)
+
+        pass1_tmp  = _resize_and_save(pass1_pil,  1024)
+        pillow_tmp = _resize_and_save(pillow_pil, 512)
+
+        pillow_label = f'"{pillow_fabric_name}"' if pillow_fabric_name else "the fabric swatch (Image 2)"
+
+        pillow_prompt = (
+            "Image 1 is a photorealistic sofa/sectional photograph.\n"
+            "Image 2 is a fabric swatch for accent pillows.\n"
+            "\n"
+            "ACCENT PILLOWS are the small, loose, purely decorative pillows propped "
+            "in front of the sofa's back cushions. They are NOT seat cushions "
+            "(horizontal seating surface), NOT back cushions (vertical back support), "
+            "and NOT armrests. Accent pillows are ornamental — no structural role.\n"
+            "\n"
+            f"YOUR ONLY TASK: Apply {pillow_label} to the accent pillows.\n"
+            "  • Accent pillows already present → re-cover them with this fabric.\n"
+            "  • No accent pillows visible → add 2–3 tasteful ones in front of the back cushions.\n"
+            "\n"
+            "DO NOT CHANGE ANYTHING ELSE:\n"
+            "  • Seat cushions — leave exactly as-is\n"
+            "  • Back cushions — leave exactly as-is\n"
+            "  • Arms / armrests — leave exactly as-is\n"
+            "  • Background, floor, legs, frame — leave exactly as-is\n"
+            "\n"
+            "Output a single fully photorealistic furniture catalog photograph."
+        )
+
+        try:
+            with open(pass1_tmp.name, "rb") as p1_f, open(pillow_tmp.name, "rb") as sw_f:
+                response2 = await client.images.edit(
+                    model="gpt-image-1",
+                    image=[p1_f, sw_f],
+                    prompt=pillow_prompt,
+                )
+        finally:
+            os.unlink(pass1_tmp.name)
+            os.unlink(pillow_tmp.name)
+
+        img_data = base64.b64decode(response2.data[0].b64_json)
+        result_filename = f"viz_oai_{uuid.uuid4().hex}.png"
+        with open(RESULTS_DIR / result_filename, "wb") as f:
+            f.write(img_data)
+
+        print(f"[OpenAI] Pass 2 (accent pillows) done: {result_filename}")
+        return result_filename
+
+    except Exception as e:
+        print(f"[OpenAI] visualization failed, falling back to CV pipeline: {e}")
+        return apply_fabric_to_furniture(fabric_path, furniture_path)
+
+
+async def refine_with_openai(result_filename: str, user_prompt: str) -> str:
+    """
+    Refine an existing visualization using OpenAI gpt-image-1.
+
+    Loads the current result image and sends it to the model with the user's
+    custom instruction (e.g. "make the fabric darker", "clean up the edges").
+    Returns the filename of the new refined result.
+    """
+    import base64
+    import os
+    import tempfile
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    result_path = RESULTS_DIR / result_filename
+    if not result_path.exists():
+        raise FileNotFoundError(result_filename)
+
+    # Load and cap at 1024px
+    img = Image.open(result_path).convert("RGB")
+    if max(img.size) > 1024:
+        ratio = 1024 / max(img.size)
+        img = img.resize(
+            (int(img.width * ratio), int(img.height * ratio)), Image.LANCZOS
+        )
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    img.save(tmp, format="PNG")
+    tmp.flush()
+    tmp.close()
+
+    prompt = (
+        "This is a furniture visualization photograph. "
+        "Please apply the following modification:\n\n"
+        f"{user_prompt.strip()}\n\n"
+        "Preserve the furniture shape, fabric pattern, and overall composition "
+        "unless the instruction specifically asks to change them. "
+        "Output a single photorealistic furniture catalog photograph."
+    )
+
+    try:
+        with open(tmp.name, "rb") as f:
+            response = await client.images.edit(
+                model="gpt-image-1",
+                image=[f],
+                prompt=prompt,
+            )
+    finally:
+        os.unlink(tmp.name)
+
+    img_data = base64.b64decode(response.data[0].b64_json)
+    new_filename = f"viz_oai_{uuid.uuid4().hex}.png"
+    with open(RESULTS_DIR / new_filename, "wb") as f:
+        f.write(img_data)
+
+    return new_filename
 
 
 async def apply_fabric_ai(fabric_path: Path, furniture_path: Path) -> str:

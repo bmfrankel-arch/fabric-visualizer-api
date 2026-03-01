@@ -1,5 +1,19 @@
+import os
 from pydantic_settings import BaseSettings
 from pathlib import Path
+
+# Load .env file from the backend directory before Settings is initialized.
+# This works regardless of the working directory uvicorn starts from.
+_env_file = Path(__file__).parent.parent / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _key, _, _val = _line.partition("=")
+            _key = _key.strip()
+            _val = _val.strip()
+            if _key and _key not in os.environ:  # real env vars take priority
+                os.environ[_key] = _val
 
 
 class Settings(BaseSettings):
@@ -13,8 +27,9 @@ class Settings(BaseSettings):
     # AI API settings (optional - enables AI-powered fabric application)
     replicate_api_token: str = ""
     stability_api_key: str = ""
+    openai_api_key: str = ""  # FV_OPENAI_API_KEY env var
 
-    model_config = {"env_prefix": "FV_"}
+    model_config = {"env_prefix": "FV_", "extra": "ignore"}
 
 
 settings = Settings()

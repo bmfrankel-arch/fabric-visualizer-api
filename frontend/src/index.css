@@ -355,7 +355,8 @@ input:focus, select:focus {
 .selection-bar {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -424,10 +425,139 @@ input:focus, select:focus {
   line-height: 1;
 }
 
+/* Pillow chip — uses a warm amber accent to visually distinguish from body fabric */
+.selection-chip-pillow {
+  background: #fff8e6;
+  border-color: #c8922a;
+}
+
+/* "Add pillow fabric" button inline in selection bar */
+.selection-add-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.selection-add-btn:hover {
+  border-color: #c8922a;
+  color: #c8922a;
+  background: #fff8e6;
+}
+
+/* "(AI only)" tag shown next to Pillows label */
+.ai-only-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: #f0e8ff;
+  color: #7c3aed;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Active state for pillow pick prompt */
+.selection-empty-active {
+  color: #c8922a;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 0.8rem;
+  animation: pulse-text 1.2s ease-in-out infinite;
+}
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Banner shown in fabric panel when in pillow selection mode */
+.pillow-mode-banner {
+  background: #fff8e6;
+  border: 1px solid #c8922a;
+  border-radius: var(--radius);
+  padding: 0.6rem 1rem;
+  font-size: 0.82rem;
+  color: #7a5a10;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Small secondary button variant */
+.btn-sm {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
+}
+
 .btn-visualize {
   padding: 0.625rem 1.5rem;
   font-size: 0.95rem;
   white-space: nowrap;
+}
+
+/* ─── Mode toggle (Standard / AI) ─────────────── */
+
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mode-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 16px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mode-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.mode-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.mode-btn-ai.active {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.4);
+}
+
+.mode-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ─── AI badge on result ───────────────────────── */
+
+.badge-ai {
+  display: inline-block;
+  margin-left: 0.5rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
 }
 
 /* ─── Catalog two-panel layout ─────────────────── */
@@ -694,9 +824,190 @@ input:focus, select:focus {
   margin-bottom: 1.5rem;
 }
 
+.result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
 .result-container img {
   max-width: 100%;
-  max-height: 450px;
+  max-height: 500px;
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
+}
+
+/* ─── Refinement prompt ────────────────────────── */
+
+.refine-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+
+.refine-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.refine-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.refine-input {
+  flex: 1;
+  font-size: 0.875rem;
+}
+
+.refine-btn {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+}
+
+/* ─── Jacquard filter chips ────────────────────── */
+
+.jacquard-filter {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.jacquard-chip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.jacquard-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.jacquard-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.badge-jacquard {
+  display: inline-block;
+  margin-left: 0.4rem;
+  background: #f0f4ff;
+  color: #3b5bdb;
+  border: 1px solid #bac8ff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 8px;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+}
+
+.badge-jacquard-sm {
+  display: inline-block;
+  margin-left: 0.25rem;
+  background: #3b5bdb;
+  color: white;
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 0.05rem 0.3rem;
+  border-radius: 6px;
+  vertical-align: middle;
+}
+
+/* ─── Upload Frame tab & zone ──────────────────── */
+
+.retailer-tab-upload {
+  margin-left: auto;
+  color: var(--accent) !important;
+  font-style: italic;
+}
+
+.upload-frame-panel {
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.upload-frame-hint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.upload-frame-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 180px;
+  justify-content: center;
+}
+
+.upload-frame-zone:hover,
+.upload-frame-zone.dragging {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.upload-frame-zone.loading {
+  cursor: default;
+  flex-direction: row;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.upload-frame-zone p {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.upload-frame-zone small {
+  font-size: 0.75rem;
+}
+
+.upload-frame-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.upload-frame-preview {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.upload-frame-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.upload-frame-change {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
 }

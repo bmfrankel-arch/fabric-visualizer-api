@@ -15,6 +15,11 @@ if [ ! -d "$DIST" ] || [ "$1" = "--build" ]; then
     echo ""
 fi
 
+# Redirect Numba's JIT cache — required on Windows Store Python where the
+# default site-packages directory is not writable.
+export NUMBA_CACHE_DIR="${TEMP:-/tmp}/numba_cache"
+mkdir -p "$NUMBA_CACHE_DIR"
+
 # Start backend (serves both API + frontend)
 echo "Starting server on http://localhost:8000 ..."
 cd "$DIR/backend"

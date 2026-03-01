@@ -8,8 +8,11 @@ and registering it in RETAILERS below.
 """
 
 import json
+import uuid
+import shutil
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from ..config import settings
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
@@ -27,13 +30,16 @@ def _load_fabrics():
     if _fabrics_cache is None:
         with open(DATA_DIR / "dorell_fabrics.json") as f:
             raw = json.load(f)
-        # Enrich with full image URLs
+        # Enrich with full image URLs and derived fields
         for p in raw:
             p["image_urls"] = [
                 f"{DORELL_IMAGE_BASE}/{p['slug']}/{img}" for img in p.get("images", [])
             ]
             # Primary thumbnail
             p["thumbnail"] = p["image_urls"][0] if p["image_urls"] else ""
+            # Derive jacquard flag from description
+            desc = p.get("description", "").lower()
+            p["jacquard"] = "jacquard" in desc
         _fabrics_cache = raw
     return _fabrics_cache
 
@@ -44,6 +50,7 @@ def list_fabrics(
     durability: str = "",
     content: str = "",
     direction: str = "",
+    jacquard: str = "",   # "yes" → jacquard only, "no" → non-jacquard only, "" → all
     limit: int = Query(60, le=200),
     offset: int = 0,
 ):
@@ -68,6 +75,11 @@ def list_fabrics(
     if direction:
         dl = direction.lower()
         results = [p for p in results if dl in p.get("direction", "").lower()]
+
+    if jacquard == "yes":
+        results = [p for p in results if p.get("jacquard")]
+    elif jacquard == "no":
+        results = [p for p in results if not p.get("jacquard")]
 
     total = len(results)
     page = results[offset : offset + limit]
@@ -95,7 +107,13 @@ def fabrics_filters():
         p.get("direction", "").strip() for p in fabrics
         if p.get("direction") and p["direction"] != "TBA"
     ))
-    return {"durabilities": durabilities, "contents": contents, "directions": directions}
+    jacquard_count = sum(1 for p in fabrics if p.get("jacquard"))
+    return {
+        "durabilities": durabilities,
+        "contents": contents,
+        "directions": directions,
+        "jacquard_count": jacquard_count,
+    }
 
 
 # ── Furniture Retailers ─────────────────────────────────────────
@@ -212,3 +230,32 @@ def furniture_filters(retailer: str):
     types = sorted(set(p.get("type", "") for p in items if p.get("type")))
     collections = sorted(set(p.get("collection", "") for p in items if p.get("collection")))
     return {"types": types, "collections": collections}
+
+
+# ── Custom Frame Upload ─────────────────────────────────────────
+
+@router.post("/upload-furniture")
+async def upload_custom_furniture(file: UploadFile = File(...)):
+    """
+    Upload a custom furniture photo for use in the visualizer.
+    Returns a local URL that can be passed directly as furniture_url.
+    """
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    ext = Path(file.filename or "upload.jpg").suffix.lower() or ".jpg"
+    if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+        ext = ".jpg"
+
+    filename = f"custom_{uuid.uuid4().hex}{ext}"
+    dest = settings.furniture_dir / filename
+
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    return {
+        "image_url": f"/uploads/furniture/{filename}",
+        "name": Path(file.filename or "Custom Frame").stem,
+        "filename": filename,
+    }

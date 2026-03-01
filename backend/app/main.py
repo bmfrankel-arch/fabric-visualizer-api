@@ -37,6 +37,7 @@ def health():
     return {
         "status": "ok",
         "ai_enabled": bool(settings.replicate_api_token),
+        "openai_enabled": bool(settings.openai_api_key),
     }
 
 

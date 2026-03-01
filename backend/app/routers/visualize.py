@@ -3,7 +3,13 @@ from pydantic import BaseModel
 from ..database import get_db
 from ..config import settings
 from ..models.schemas import VisualizeRequest, VisualizationOut
-from ..services.visualizer import apply_fabric_to_furniture, apply_fabric_ai, download_image
+from ..services.visualizer import (
+    apply_fabric_to_furniture,
+    apply_fabric_ai,
+    apply_fabric_openai,
+    refine_with_openai,
+    download_image,
+)
 
 router = APIRouter(prefix="/api/visualize", tags=["visualize"])
 
@@ -14,6 +20,9 @@ class CatalogVisualizeRequest(BaseModel):
     furniture_url: str
     fabric_name: str = ""
     furniture_name: str = ""
+    mode: str = "cv"  # "cv" = local pipeline, "ai" = OpenAI gpt-image-1
+    pillow_fabric_url: str = ""   # Optional second fabric for throw pillows (AI only)
+    pillow_fabric_name: str = ""  # Display name for the pillow fabric
 
 
 @router.post("/from-urls")
@@ -25,13 +34,59 @@ async def visualize_from_urls(req: CatalogVisualizeRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to download images: {e}")
 
-    result_filename = apply_fabric_to_furniture(fabric_path, furniture_path)
+    # Download pillow fabric if provided (AI mode only)
+    pillow_path = None
+    if req.pillow_fabric_url and req.mode == "ai" and settings.openai_api_key:
+        try:
+            pillow_path = await download_image(req.pillow_fabric_url)
+        except Exception:
+            pillow_path = None  # Non-fatal — proceed without pillow fabric
+
+    if req.mode == "ai" and settings.openai_api_key:
+        result_filename = await apply_fabric_openai(
+            fabric_path,
+            furniture_path,
+            pillow_fabric_path=pillow_path,
+            pillow_fabric_name=req.pillow_fabric_name,
+            main_fabric_name=req.fabric_name,
+        )
+        used_mode = "ai"
+    else:
+        result_filename = apply_fabric_to_furniture(fabric_path, furniture_path)
+        used_mode = "cv"
 
     return {
         "result_filename": result_filename,
         "result_url": f"/uploads/results/{result_filename}",
         "fabric_name": req.fabric_name,
         "furniture_name": req.furniture_name,
+        "mode": used_mode,
+        "pillow_fabric_name": req.pillow_fabric_name,
+    }
+
+
+class RefineRequest(BaseModel):
+    """Refine an existing visualization using a custom prompt."""
+    result_filename: str
+    prompt: str
+
+
+@router.post("/refine")
+async def refine_visualization(req: RefineRequest):
+    """Apply a follow-up AI edit to an existing result image."""
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=400, detail="OpenAI API key not configured")
+    if not req.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+    try:
+        new_filename = await refine_with_openai(req.result_filename, req.prompt)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Result image not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Refinement failed: {e}")
+    return {
+        "result_filename": new_filename,
+        "result_url": f"/uploads/results/{new_filename}",
     }
 
 

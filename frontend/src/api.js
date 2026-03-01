@@ -86,7 +86,9 @@ export const api = {
     request(`/api/catalog/furniture/${retailer}/filters`),
 
   // Visualize from URLs
-  visualizeFromUrls: (fabricUrl, furnitureUrl, fabricName = "", furnitureName = "") =>
+  // mode: "cv" (local pipeline) | "ai" (OpenAI gpt-image-1)
+  // pillowFabricUrl/pillowFabricName: optional second fabric applied to throw pillows (AI mode only)
+  visualizeFromUrls: (fabricUrl, furnitureUrl, fabricName = "", furnitureName = "", mode = "cv", pillowFabricUrl = "", pillowFabricName = "") =>
     request("/api/visualize/from-urls", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -95,8 +97,26 @@ export const api = {
         furniture_url: furnitureUrl,
         fabric_name: fabricName,
         furniture_name: furnitureName,
+        mode,
+        pillow_fabric_url: pillowFabricUrl,
+        pillow_fabric_name: pillowFabricName,
       }),
     }),
+
+  // Refine an existing result with a custom prompt (AI only)
+  refineVisualization: (resultFilename, prompt) =>
+    request("/api/visualize/refine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result_filename: resultFilename, prompt }),
+    }),
+
+  // Upload a custom furniture frame photo
+  uploadCustomFurniture: (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request("/api/catalog/upload-furniture", { method: "POST", body: form });
+  },
 
   // Health
   health: () => request("/api/health"),
