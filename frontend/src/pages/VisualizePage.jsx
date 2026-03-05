@@ -43,7 +43,7 @@ export default function VisualizePage() {
 
   // AI mode state — default ON; will be forced off if OpenAI isn't available
   const [aiMode, setAiMode] = useState(true);
-  const [openaiEnabled, setOpenaiEnabled] = useState(false);
+  const [openaiEnabled, setOpenaiEnabled] = useState(true); // optimistic; health check will correct if unavailable
 
   const fabricSearchTimer = useRef(null);
   const furnitureSearchTimer = useRef(null);
