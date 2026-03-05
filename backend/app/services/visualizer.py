@@ -149,8 +149,10 @@ def _tile_fabric(fabric_img: Image.Image, target_size: tuple[int, int], scale: f
     tw, th = target_size
 
     if scale is None:
-        # Target ~12 repeats across furniture width → realistic upholstery density
-        target_tile_w = tw / 12.0
+        # Target ~5 repeats across furniture width → visible pattern scale for
+        # geometric fabrics (chevrons, plaids, jacquards). 12 was too fine and
+        # made patterns indistinguishable from solid textures.
+        target_tile_w = tw / 5.0
         scale = target_tile_w / max(1, fabric_img.width)
 
     fw = max(1, int(fabric_img.width * scale))
