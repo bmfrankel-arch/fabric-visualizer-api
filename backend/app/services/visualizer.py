@@ -319,8 +319,8 @@ async def apply_fabric_openai(
             img.save(buf, format="PNG")
             return base64.b64encode(buf.getvalue()).decode()
 
-        furn_b64   = _b64(furniture_path, 1024)
-        fabric_b64 = _b64(fabric_path, 1024)
+        furn_b64   = _b64(furniture_path, 1536)
+        fabric_b64 = _b64(fabric_path, 1536)
 
         body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
 
@@ -361,14 +361,16 @@ async def apply_fabric_openai(
         except Exception as e_resp:
             # Fallback: images.edit without mask (simpler, still decent)
             print(f"[OpenAI] Responses API failed ({e_resp}), falling back to images.edit…")
-            furn_tmp   = _resize_and_save(Image.open(furniture_path), 1024)
-            fabric_tmp = _resize_and_save(Image.open(fabric_path),    1024)
+            furn_tmp   = _resize_and_save(Image.open(furniture_path), 1536)
+            fabric_tmp = _resize_and_save(Image.open(fabric_path),    1536)
             try:
                 with open(furn_tmp.name, "rb") as ff, open(fabric_tmp.name, "rb") as sf:
                     r = await client.images.edit(
                         model="gpt-image-1",
                         image=[ff, sf],
                         prompt=body_prompt,
+                        quality="high",
+                        size="1536x1024",
                     )
                 pass1_data = base64.b64decode(r.data[0].b64_json)
             finally:
@@ -389,8 +391,8 @@ async def apply_fabric_openai(
         pass1_pil  = Image.open(BytesIO(pass1_data))
         pillow_pil = Image.open(pillow_fabric_path)
 
-        pass1_tmp  = _resize_and_save(pass1_pil,  1024)
-        pillow_tmp = _resize_and_save(pillow_pil, 512)
+        pass1_tmp  = _resize_and_save(pass1_pil,  1536)
+        pillow_tmp = _resize_and_save(pillow_pil, 1024)
 
         pillow_label = f'"{pillow_fabric_name}"' if pillow_fabric_name else "the fabric swatch (Image 2)"
 
@@ -422,6 +424,8 @@ async def apply_fabric_openai(
                     model="gpt-image-1",
                     image=[p1_f, sw_f],
                     prompt=pillow_prompt,
+                    quality="high",
+                    size="1536x1024",
                 )
         finally:
             os.unlink(pass1_tmp.name)

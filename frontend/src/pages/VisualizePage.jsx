@@ -41,8 +41,8 @@ export default function VisualizePage() {
   const [refining, setRefining] = useState(false);
   const [refineError, setRefineError] = useState("");
 
-  // AI mode state
-  const [aiMode, setAiMode] = useState(false);
+  // AI mode state — default ON; will be forced off if OpenAI isn't available
+  const [aiMode, setAiMode] = useState(true);
   const [openaiEnabled, setOpenaiEnabled] = useState(false);
 
   const fabricSearchTimer = useRef(null);
