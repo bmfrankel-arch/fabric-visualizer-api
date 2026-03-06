@@ -321,11 +321,17 @@ async def apply_fabric_openai(
             img.save(buf, format="PNG")
             return base64.b64encode(buf.getvalue()).decode()
 
-        def _tile_swatch_b64(path: Path, tiles: int = 3, max_px: int = 1536) -> str:
-            """Tile the fabric swatch N×N so OpenAI sees the full repeating pattern
-            at near-furniture scale rather than a macro thread-level close-up.
-            This is critical for geometric patterns (chevrons, plaids, jacquards)
-            that would otherwise read as plain texture."""
+        def _tile_swatch_b64(path: Path, tiles: int = 6, max_px: int = 1536) -> str:
+            """Tile the fabric swatch N×N so OpenAI sees the fabric at
+            approximately yard-cut viewing distance instead of a macro
+            thread-level close-up.
+
+            6×6 tiles → each tile is ~256 px at 1536 px output.  This means:
+              • Micro patterns (herringbone, micro-chevron, tweed) appear as
+                the fine texture they really are — not scaled-up bold shapes.
+              • Macro patterns (large plaid, damask) still show their repeat
+                clearly across the tiled image.
+            """
             img = Image.open(path).convert("RGB")
             tiled = Image.new("RGB", (img.width * tiles, img.height * tiles))
             for row in range(tiles):
@@ -342,24 +348,23 @@ async def apply_fabric_openai(
             return base64.b64encode(buf.getvalue()).decode()
 
         furn_b64   = _b64(furniture_path, 1536)
-        fabric_b64 = _tile_swatch_b64(fabric_path, tiles=3, max_px=1536)
+        fabric_b64 = _tile_swatch_b64(fabric_path, tiles=6, max_px=1536)
 
         body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
 
         body_prompt = (
             f"Image 1 is a sofa/sectional photograph. "
-            f"Image 2 shows a tiled fabric swatch for {body_label} — "
-            "the same pattern repeats across all tiles.\n\n"
+            f"Image 2 shows a tiled yard-cut view of the upholstery fabric {body_label}. "
+            "The tiled image represents approximately how one yard of this fabric "
+            "looks from a normal viewing distance (3–6 feet).\n\n"
             f"Completely reupholster the sofa in {body_label}: apply this fabric to ALL "
             "upholstered surfaces — seat cushions, back cushions, and armrests. "
             "Fully replace any existing fabric, color, or texture on the sofa.\n\n"
             "Requirements:\n"
-            "  • Reproduce the EXACT pattern from Image 2. "
-            "If it is geometric (chevron, herringbone, plaid, stripe, jacquard) the pattern "
-            "lines and shapes MUST be clearly legible at furniture scale — visible from "
-            "across a room, not blurred into plain texture.\n"
-            "  • Scale the pattern realistically: one pattern repeat should span "
-            "roughly 8–14 inches on the finished sofa.\n"
+            "  • Apply the fabric EXACTLY as it appears in Image 2 — preserve the "
+            "true scale and density of the pattern. If it is a fine/micro texture "
+            "(herringbone, micro-chevron, tweed) it should read as a subtle woven "
+            "texture on the sofa, NOT enlarged into bold geometric shapes.\n"
             "  • Match the exact colors and tones of Image 2.\n"
             "  • Realistic fabric drape — natural folds, wrinkles, tension lines.\n"
             "  • Stitched seam lines and piping where structurally appropriate.\n"
