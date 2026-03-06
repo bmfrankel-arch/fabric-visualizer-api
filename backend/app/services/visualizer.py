@@ -321,21 +321,49 @@ async def apply_fabric_openai(
             img.save(buf, format="PNG")
             return base64.b64encode(buf.getvalue()).decode()
 
+        def _tile_swatch_b64(path: Path, tiles: int = 3, max_px: int = 1536) -> str:
+            """Tile the fabric swatch N×N so OpenAI sees the full repeating pattern
+            at near-furniture scale rather than a macro thread-level close-up.
+            This is critical for geometric patterns (chevrons, plaids, jacquards)
+            that would otherwise read as plain texture."""
+            img = Image.open(path).convert("RGB")
+            tiled = Image.new("RGB", (img.width * tiles, img.height * tiles))
+            for row in range(tiles):
+                for col in range(tiles):
+                    tiled.paste(img, (col * img.width, row * img.height))
+            # Resize down so the tiled image fits within max_px
+            if max(tiled.size) > max_px:
+                r = max_px / max(tiled.size)
+                tiled = tiled.resize(
+                    (int(tiled.width * r), int(tiled.height * r)), Image.LANCZOS
+                )
+            buf = BytesIO()
+            tiled.save(buf, format="PNG")
+            return base64.b64encode(buf.getvalue()).decode()
+
         furn_b64   = _b64(furniture_path, 1536)
-        fabric_b64 = _b64(fabric_path, 1536)
+        fabric_b64 = _tile_swatch_b64(fabric_path, tiles=3, max_px=1536)
 
         body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
 
         body_prompt = (
             f"Image 1 is a sofa/sectional photograph. "
-            f"Image 2 is a fabric swatch for {body_label}.\n\n"
-            f"Reupholster the sofa by applying {body_label} from Image 2 to ALL "
-            "upholstered surfaces: seat cushions, back cushions, and armrests.\n\n"
+            f"Image 2 shows a tiled fabric swatch for {body_label} — "
+            "the same pattern repeats across all tiles.\n\n"
+            f"Completely reupholster the sofa in {body_label}: apply this fabric to ALL "
+            "upholstered surfaces — seat cushions, back cushions, and armrests. "
+            "Fully replace any existing fabric, color, or texture on the sofa.\n\n"
             "Requirements:\n"
-            "  • Match the exact color, weave, and pattern of Image 2.\n"
+            "  • Reproduce the EXACT pattern from Image 2. "
+            "If it is geometric (chevron, herringbone, plaid, stripe, jacquard) the pattern "
+            "lines and shapes MUST be clearly legible at furniture scale — visible from "
+            "across a room, not blurred into plain texture.\n"
+            "  • Scale the pattern realistically: one pattern repeat should span "
+            "roughly 8–14 inches on the finished sofa.\n"
+            "  • Match the exact colors and tones of Image 2.\n"
             "  • Realistic fabric drape — natural folds, wrinkles, tension lines.\n"
             "  • Stitched seam lines and piping where structurally appropriate.\n"
-            "  • Lighting consistent with the room (highlights, shadows).\n"
+            "  • Lighting consistent with the original photo (highlights, shadows).\n"
             "  • Result indistinguishable from a professional furniture catalog photo.\n\n"
             "Preserve exactly: furniture silhouette, legs, frame, background, room setting."
         )
