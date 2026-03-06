@@ -321,55 +321,72 @@ async def apply_fabric_openai(
             img.save(buf, format="PNG")
             return base64.b64encode(buf.getvalue()).decode()
 
-        def _tile_swatch_b64(path: Path, tiles: int = 6, max_px: int = 1536) -> str:
-            """Tile the fabric swatch N×N so OpenAI sees the fabric at
-            approximately yard-cut viewing distance instead of a macro
-            thread-level close-up.
+        def _yard_cut_b64(path: Path, max_px: int = 1536) -> str:
+            """Create a 'yard-cut' view of the fabric that simulates how it
+            looks from normal furniture-viewing distance (6–10 feet).
 
-            6×6 tiles → each tile is ~256 px at 1536 px output.  This means:
-              • Micro patterns (herringbone, micro-chevron, tweed) appear as
-                the fine texture they really are — not scaled-up bold shapes.
-              • Macro patterns (large plaid, damask) still show their repeat
-                clearly across the tiled image.
+            Dorell fabric photos are macro close-ups (4–6 inches of cloth at
+            high magnification).  On actual furniture you view fabric from
+            across a room, where micro-textures (herringbone, micro-chevron,
+            tweed, boucle) merge into an overall color/tone impression.
+
+            Pipeline:
+              1. Downsample each swatch tile to ~128 px — micro details
+                 (individual V-shapes, thread-level weave) drop below
+                 perceptual threshold.
+              2. Tile 12×12 to fill the output canvas.
+              3. Apply Gaussian blur (radius 3) to further smooth thread-level
+                 artifacts and tile seams.
+
+            Result: OpenAI sees the fabric's overall color, sheen, and subtle
+            texture — NOT individual pattern lines it would try to reproduce
+            at exaggerated scale.  Large-scale patterns (bold plaid, wide
+            stripes, damask) still survive because their features are >>128 px
+            in the original image.
             """
             img = Image.open(path).convert("RGB")
-            tiled = Image.new("RGB", (img.width * tiles, img.height * tiles))
+            tiles = 12
+            tile_px = max_px // tiles   # ~128 px per tile
+            small = img.resize((tile_px, tile_px), Image.LANCZOS)
+
+            tiled = Image.new("RGB", (tile_px * tiles, tile_px * tiles))
             for row in range(tiles):
                 for col in range(tiles):
-                    tiled.paste(img, (col * img.width, row * img.height))
-            # Resize down so the tiled image fits within max_px
-            if max(tiled.size) > max_px:
-                r = max_px / max(tiled.size)
-                tiled = tiled.resize(
-                    (int(tiled.width * r), int(tiled.height * r)), Image.LANCZOS
-                )
+                    tiled.paste(small, (col * tile_px, row * tile_px))
+
+            # Gaussian blur simulates viewing from across a room
+            tiled = tiled.filter(ImageFilter.GaussianBlur(radius=3))
+
             buf = BytesIO()
             tiled.save(buf, format="PNG")
             return base64.b64encode(buf.getvalue()).decode()
 
         furn_b64   = _b64(furniture_path, 1536)
-        fabric_b64 = _tile_swatch_b64(fabric_path, tiles=6, max_px=1536)
+        fabric_b64 = _yard_cut_b64(fabric_path, max_px=1536)
 
         body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
 
         body_prompt = (
             f"Image 1 is a sofa/sectional photograph. "
-            f"Image 2 shows a tiled yard-cut view of the upholstery fabric {body_label}. "
-            "The tiled image represents approximately how one yard of this fabric "
-            "looks from a normal viewing distance (3–6 feet).\n\n"
+            f"Image 2 is a color and texture reference for the upholstery fabric {body_label}. "
+            "It shows the fabric's overall color, sheen, and surface character as it "
+            "appears from normal furniture-viewing distance.\n\n"
             f"Completely reupholster the sofa in {body_label}: apply this fabric to ALL "
             "upholstered surfaces — seat cushions, back cushions, and armrests. "
             "Fully replace any existing fabric, color, or texture on the sofa.\n\n"
-            "Requirements:\n"
-            "  • Apply the fabric EXACTLY as it appears in Image 2 — preserve the "
-            "true scale and density of the pattern. If it is a fine/micro texture "
-            "(herringbone, micro-chevron, tweed) it should read as a subtle woven "
-            "texture on the sofa, NOT enlarged into bold geometric shapes.\n"
-            "  • Match the exact colors and tones of Image 2.\n"
+            "CRITICAL: Image 2 is a reference for COLOR and TEXTURE IMPRESSION only.\n"
+            "  • Do NOT reproduce individual thread lines, weave lines, or "
+            "zigzag/chevron/herringbone lines as visible strokes on the sofa.\n"
+            "  • The fabric should look smooth and refined from viewing distance, "
+            "with only very subtle woven texture — like a high-end upholstery "
+            "fabric photographed for a furniture catalog.\n"
+            "  • Match the exact overall color and tone of Image 2.\n\n"
+            "Additional requirements:\n"
             "  • Realistic fabric drape — natural folds, wrinkles, tension lines.\n"
             "  • Stitched seam lines and piping where structurally appropriate.\n"
             "  • Lighting consistent with the original photo (highlights, shadows).\n"
-            "  • Result indistinguishable from a professional furniture catalog photo.\n\n"
+            "  • Result indistinguishable from a professional furniture catalog photo "
+            "(e.g., Crate & Barrel, Pottery Barn, West Elm product photography).\n\n"
             "Preserve exactly: furniture silhouette, legs, frame, background, room setting."
         )
 
