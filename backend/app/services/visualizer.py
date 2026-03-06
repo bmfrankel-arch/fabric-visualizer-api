@@ -25,6 +25,9 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 IMAGE_CACHE_DIR = settings.upload_dir / "cache"
 IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+YARD_CUTS_DIR = settings.upload_dir / "yard-cuts"
+YARD_CUTS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 async def download_image(url: str) -> Path:
     """Download an image URL to a local cache file. Returns cached path.
@@ -252,24 +255,28 @@ async def apply_fabric_openai(
     main_fabric_name: str = "",
 ) -> str:
     """
-    Direct AI fabric application — mirrors what ChatGPT does natively.
+    AI fabric visualization — two-pass yard-cut pipeline.
 
-    The previous hybrid approach (CV composite → OpenAI refinement) produced
-    flat, artificial-looking results because OpenAI was handed a degraded
-    pre-processed image instead of the original clean furniture photo.
+    Proven approach from the window-treatment project: the original Dorell
+    swatch photos are macro close-ups of ~2 cm of cloth.  Sending them
+    directly to image generation produces either exaggerated patterns or
+    flat solid colors.  The fix is a two-pass pipeline:
 
-    This version sends the ORIGINAL furniture photograph + fabric swatch
-    directly to gpt-image-1 with no pre-processing, giving the model the
-    same high-quality inputs it gets in ChatGPT — which is why ChatGPT
-    results look so much better.
+    Pass 1 — YARD-CUT (cached per fabric):
+        gpt-image-1 takes the swatch close-up and regenerates it as a full
+        yard of fabric (54″ wide × 36″ long) at 1536×1024.  The AI
+        intelligently extrapolates the pattern at correct scale with seamless
+        tiling and accurate color.  Result is cached in YARD_CUTS_DIR so
+        this only runs once per fabric, not per visualization.
 
-    Pass 1 (always):
-        Original furniture photo + body fabric swatch → OpenAI applies fabric
-        to all upholstered surfaces with realistic drape and photorealism.
+    Pass 2 — REUPHOLSTER (always):
+        gpt-image-1 takes the yard-cut + furniture photo and applies the
+        fabric to all upholstered surfaces.  Because the yard-cut already
+        shows the fabric at furniture-relevant scale, the AI reproduces the
+        pattern faithfully.
 
-    Pass 2 (only when pillow_fabric_path is given):
-        Pass-1 result + pillow fabric swatch → OpenAI adds/replaces accent
-        pillows only. Body fabric and everything else is left untouched.
+    Pass 3 — ACCENT PILLOWS (only when pillow_fabric_path is given):
+        gpt-image-1 adds/replaces accent pillows with a separate fabric.
 
     Falls back to plain CV pipeline if OpenAI key is absent or call fails.
     Requires FV_OPENAI_API_KEY environment variable.
@@ -286,7 +293,7 @@ async def apply_fabric_openai(
         client = AsyncOpenAI(api_key=settings.openai_api_key)
 
         has_pillows = pillow_fabric_path is not None and pillow_fabric_path.exists()
-        print(f"[OpenAI] apply_fabric_openai v7-direct starting (pillows={'yes' if has_pillows else 'no'})")
+        print(f"[OpenAI] apply_fabric_openai v8-yardcut starting (pillows={'yes' if has_pillows else 'no'})")
 
         # ── Helpers: resize and write to temp file ─────────────────────
         def _resize_and_save(img: Image.Image, max_px: int) -> tempfile.NamedTemporaryFile:
@@ -302,22 +309,26 @@ async def apply_fabric_openai(
             tmp.flush(); tmp.close()
             return tmp
 
-        # ── PASS 1 ─ gpt-image-1 via images.edit (DIRECT) ─────────────
-        # The Responses API uses gpt-4o as a middleman that crafts its own
-        # internal prompt for the image generator.  In testing, gpt-4o
-        # loses fabric fidelity in that translation — wrong colors, wrong
-        # patterns, generic results.
+        # ── TWO-PASS PIPELINE (proven in window-treatment project) ────
         #
-        # images.edit with gpt-image-1 gives the image generation model
-        # DIRECT pixel-level access to both reference images + our prompt.
-        # This is closer to what happens when you drag-and-drop images
-        # into ChatGPT's image editor.
+        # The original swatch photos are macro close-ups showing thread-
+        # level detail of ~2 cm of cloth.  When sent directly to image
+        # generation, the AI either exaggerates the pattern (bold zigzags)
+        # or ignores it entirely (plain solid).
         #
-        # Two-step approach:
-        #   Step A: gpt-4o analyzes the fabric swatch (text-only) so we
-        #           can describe it precisely in the generation prompt.
-        #   Step B: gpt-image-1 via images.edit gets furniture + fabric
-        #           swatch images directly, plus the rich prompt.
+        # The window-treatment project solved this by having gpt-image-1
+        # FIRST generate a "yard-cut" view — the AI intelligently
+        # extrapolates from the close-up swatch to show what a full yard
+        # of fabric looks like, with correct pattern scale, seamless
+        # tiling, and proper color fidelity.
+        #
+        # Pass 1 — YARD-CUT GENERATION (cached per fabric):
+        #   gpt-image-1 takes the swatch close-up → produces a 1536×1024
+        #   image showing the fabric at real-world scale.
+        #
+        # Pass 2 — REUPHOLSTER:
+        #   gpt-image-1 takes the yard-cut + furniture photo → applies
+        #   the fabric to all upholstered surfaces.
 
         def _b64(path: Path, max_px: int = 1024) -> str:
             """Load, resize, and base64-encode an image as PNG."""
@@ -331,127 +342,86 @@ async def apply_fabric_openai(
             img.save(buf, format="PNG")
             return base64.b64encode(buf.getvalue()).decode()
 
-        def _yard_cut(path: Path, tiles: int = 4, out_px: int = 1536) -> Image.Image:
-            """Create a 'yard-cut' view by tiling the swatch NxN.
-
-            Dorell fabric photos are macro close-ups showing a few
-            centimetres of cloth.  On a real sofa the same pattern repeats
-            many times.  Tiling produces a zoomed-out view that shows the
-            fabric at a realistic furniture-viewing scale — so the AI can
-            see and reproduce the pattern correctly.
-            """
-            tile = Image.open(path).convert("RGB")
-            # Shrink each tile so the NxN grid fits in out_px
-            tile_sz = out_px // tiles
-            tile = tile.resize((tile_sz, tile_sz), Image.LANCZOS)
-            yard = Image.new("RGB", (out_px, out_px))
-            for row in range(tiles):
-                for col in range(tiles):
-                    yard.paste(tile, (col * tile_sz, row * tile_sz))
-            return yard
-
-        fabric_b64 = _b64(fabric_path, 1536)
         body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
 
-        # ── Step A: Fabric analysis (gpt-4o text-only) ────────────────
-        analysis_prompt = (
-            "You are an expert textile analyst. This is a close-up swatch photograph "
-            "of an upholstery fabric. Describe it in exactly 2-3 sentences:\n"
-            "1. The pattern type (e.g., herringbone, chevron, solid, tweed, plaid, "
-            "jacquard, damask, geometric, etc.) and its visual scale — is it a "
-            "micro-pattern (fine, subtle texture visible only up close) or a bold "
-            "large-scale pattern?\n"
-            "2. The primary color(s) and undertones.\n"
-            "3. How this fabric would look on a full sofa viewed from 6-8 feet away — "
-            "would the pattern read as an overall texture, or as distinct repeating motifs?\n"
-            "\n"
-            "Be precise and specific about colors (use descriptors like 'cool silver-gray' "
-            "not just 'light'). Your description will be used to guide an image generator."
-        )
+        # ── Pass 1: Generate yard-cut (or use cached) ─────────────────
+        # Cache key = hash of fabric file content so we only generate once
+        fabric_hash = hashlib.sha256(fabric_path.read_bytes()).hexdigest()[:16]
+        yard_cut_path = YARD_CUTS_DIR / f"yc_{fabric_hash}.png"
 
-        try:
-            analysis_resp = await client.responses.create(
-                model="gpt-4o",
-                input=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "input_text",  "text": analysis_prompt},
-                        {"type": "input_image", "image_url": f"data:image/png;base64,{fabric_b64}"},
-                    ],
-                }],
+        if yard_cut_path.exists():
+            print(f"[OpenAI] Using cached yard-cut: {yard_cut_path.name}")
+        else:
+            print(f"[OpenAI] Generating yard-cut for {body_label}…")
+            # Use the same proven prompt from the window-treatment project.
+            # Since dorell_fabrics.json doesn't have repeat data, we use
+            # standard upholstery defaults (54″ wide) and let the AI
+            # determine the repeat from the swatch image itself.
+            yard_cut_prompt = (
+                "Recreate how this fabric pattern looks in a full yard cut of "
+                "fabric. Assume the fabric is 54 inches wide and show the "
+                "complete repeating pattern tiled accurately across the full "
+                "fabric width and one yard (36 inches) of length. "
+                "Maintain the exact colors, textures, and pattern details from "
+                "the original image. "
+                "Do not include any rulers, measurement markings, dimension "
+                "labels, borders, or annotations — show only the fabric itself."
             )
-            fabric_description = analysis_resp.output_text.strip()
-            print(f"[OpenAI] Fabric analysis: {fabric_description}")
-        except Exception as e_analysis:
-            print(f"[OpenAI] Fabric analysis failed ({e_analysis}), using generic description")
-            fabric_description = "a textured upholstery fabric"
 
-        # ── Step B: gpt-image-1 DIRECT via images.edit ────────────────
-        # Send the furniture photo + a yard-cut tiled swatch directly to
-        # gpt-image-1.  No gpt-4o middleman for the generation step.
+            swatch_tmp = _resize_and_save(Image.open(fabric_path), 1536)
+            try:
+                with open(swatch_tmp.name, "rb") as sf:
+                    yc_resp = await client.images.edit(
+                        model="gpt-image-1",
+                        image=[sf],
+                        prompt=yard_cut_prompt,
+                        quality="high",
+                        size="1536x1024",
+                    )
+                yc_data = base64.b64decode(yc_resp.data[0].b64_json)
+                with open(yard_cut_path, "wb") as f:
+                    f.write(yc_data)
+                print(f"[OpenAI] Yard-cut generated and cached: {yard_cut_path.name}")
+            finally:
+                os.unlink(swatch_tmp.name)
+
+        # ── Pass 2: Reupholster furniture using yard-cut ──────────────
         body_prompt = (
-            f"Image 1 is a photograph of a sofa/sectional.\n"
-            f"Image 2 is a yard-cut view of {body_label} showing how the fabric "
-            f"looks at real-world scale.\n\n"
-            f"FABRIC DESCRIPTION: {fabric_description}\n\n"
+            f"Image 1 is a photograph of a sofa or sectional.\n"
+            f"Image 2 is a full yard-cut view of {body_label} — this is how "
+            f"the fabric looks at real-world furniture scale.\n\n"
             f"Reupholster the entire sofa using EXACTLY this fabric. Apply it to "
             "ALL upholstered surfaces: seat cushions, back cushions, arms, and "
             "sides. Completely replace the existing fabric.\n\n"
             "CRITICAL REQUIREMENTS:\n"
-            "- The fabric COLOR must match Image 2 exactly — copy the precise hue, "
-            "saturation, and value from the swatch, do not lighten or shift it.\n"
-            "- The fabric PATTERN/TEXTURE must match Image 2 — reproduce the same "
-            "weave structure, pattern type, and visual texture at the correct scale.\n"
-            "- Photorealistic result: natural fabric drape, folds, seam lines, and "
+            "- The fabric COLOR must match Image 2 exactly — copy the precise "
+            "hue, saturation, and value. Do not lighten, darken, or shift it.\n"
+            "- The fabric PATTERN and TEXTURE must match Image 2 — reproduce "
+            "the same weave, pattern type, and visual texture at the scale "
+            "shown in the yard-cut image.\n"
+            "- Photorealistic: natural fabric drape, folds, seam lines, and "
             "lighting that matches the original photograph.\n"
-            "- Keep the furniture shape, legs, frame, and background exactly as-is.\n\n"
+            "- Keep the furniture shape, legs, frame, and background exactly "
+            "as-is.\n\n"
             "Output a single photorealistic furniture product photograph."
         )
 
         furn_tmp = _resize_and_save(Image.open(furniture_path), 1536)
-        # Create yard-cut view: 4×4 tiles at 1536px — shows fabric at sofa scale
-        yard_img = _yard_cut(fabric_path, tiles=4, out_px=1536)
-        yard_tmp = _resize_and_save(yard_img, 1536)
+        yc_tmp   = _resize_and_save(Image.open(yard_cut_path),  1536)
 
         try:
-            with open(furn_tmp.name, "rb") as ff, open(yard_tmp.name, "rb") as sf:
+            with open(furn_tmp.name, "rb") as ff, open(yc_tmp.name, "rb") as yf:
                 r = await client.images.edit(
                     model="gpt-image-1",
-                    image=[ff, sf],
+                    image=[ff, yf],
                     prompt=body_prompt,
                     quality="high",
                     size="1536x1024",
                 )
             pass1_data = base64.b64decode(r.data[0].b64_json)
-        except Exception as e_edit:
-            # Fallback: try Responses API if images.edit fails
-            print(f"[OpenAI] images.edit failed ({e_edit}), falling back to Responses API…")
-            furn_b64 = _b64(furniture_path, 1536)
-            try:
-                resp1 = await client.responses.create(
-                    model="gpt-4o",
-                    input=[{
-                        "role": "user",
-                        "content": [
-                            {"type": "input_text",  "text": body_prompt},
-                            {"type": "input_image", "image_url": f"data:image/png;base64,{furn_b64}"},
-                            {"type": "input_image", "image_url": f"data:image/png;base64,{fabric_b64}"},
-                        ],
-                    }],
-                    tools=[{"type": "image_generation"}],
-                )
-                pass1_data = None
-                for item in resp1.output:
-                    if item.type == "image_generation_call":
-                        pass1_data = base64.b64decode(item.result)
-                        break
-                if pass1_data is None:
-                    raise ValueError("No image generated")
-            except Exception as e2:
-                raise RuntimeError(f"Both image paths failed: edit={e_edit}, resp={e2}")
         finally:
             os.unlink(furn_tmp.name)
-            os.unlink(yard_tmp.name)
+            os.unlink(yc_tmp.name)
 
         print("[OpenAI] Pass 1 (body fabric) done")
 
