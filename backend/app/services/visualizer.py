@@ -321,73 +321,24 @@ async def apply_fabric_openai(
             img.save(buf, format="PNG")
             return base64.b64encode(buf.getvalue()).decode()
 
-        def _yard_cut_b64(path: Path, max_px: int = 1536) -> str:
-            """Create a 'yard-cut' view of the fabric that simulates how it
-            looks from normal furniture-viewing distance (6–10 feet).
-
-            Dorell fabric photos are macro close-ups (4–6 inches of cloth at
-            high magnification).  On actual furniture you view fabric from
-            across a room, where micro-textures (herringbone, micro-chevron,
-            tweed, boucle) merge into an overall color/tone impression.
-
-            Pipeline:
-              1. Downsample each swatch tile to ~128 px — micro details
-                 (individual V-shapes, thread-level weave) drop below
-                 perceptual threshold.
-              2. Tile 12×12 to fill the output canvas.
-              3. Apply Gaussian blur (radius 3) to further smooth thread-level
-                 artifacts and tile seams.
-
-            Result: OpenAI sees the fabric's overall color, sheen, and subtle
-            texture — NOT individual pattern lines it would try to reproduce
-            at exaggerated scale.  Large-scale patterns (bold plaid, wide
-            stripes, damask) still survive because their features are >>128 px
-            in the original image.
-            """
-            img = Image.open(path).convert("RGB")
-            tiles = 12
-            tile_px = max_px // tiles   # ~128 px per tile
-            small = img.resize((tile_px, tile_px), Image.LANCZOS)
-
-            tiled = Image.new("RGB", (tile_px * tiles, tile_px * tiles))
-            for row in range(tiles):
-                for col in range(tiles):
-                    tiled.paste(small, (col * tile_px, row * tile_px))
-
-            # Gaussian blur simulates viewing from across a room
-            tiled = tiled.filter(ImageFilter.GaussianBlur(radius=3))
-
-            buf = BytesIO()
-            tiled.save(buf, format="PNG")
-            return base64.b64encode(buf.getvalue()).decode()
-
+        # Send the original fabric swatch at high resolution — no tiling,
+        # no blur, no over-processing.  Let gpt-4o use its own judgment on
+        # pattern scale, just like it does in ChatGPT.
         furn_b64   = _b64(furniture_path, 1536)
-        fabric_b64 = _yard_cut_b64(fabric_path, max_px=1536)
+        fabric_b64 = _b64(fabric_path, 1536)
 
         body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
 
         body_prompt = (
-            f"Image 1 is a sofa/sectional photograph. "
-            f"Image 2 is a color and texture reference for the upholstery fabric {body_label}. "
-            "It shows the fabric's overall color, sheen, and surface character as it "
-            "appears from normal furniture-viewing distance.\n\n"
-            f"Completely reupholster the sofa in {body_label}: apply this fabric to ALL "
-            "upholstered surfaces — seat cushions, back cushions, and armrests. "
-            "Fully replace any existing fabric, color, or texture on the sofa.\n\n"
-            "CRITICAL: Image 2 is a reference for COLOR and TEXTURE IMPRESSION only.\n"
-            "  • Do NOT reproduce individual thread lines, weave lines, or "
-            "zigzag/chevron/herringbone lines as visible strokes on the sofa.\n"
-            "  • The fabric should look smooth and refined from viewing distance, "
-            "with only very subtle woven texture — like a high-end upholstery "
-            "fabric photographed for a furniture catalog.\n"
-            "  • Match the exact overall color and tone of Image 2.\n\n"
-            "Additional requirements:\n"
-            "  • Realistic fabric drape — natural folds, wrinkles, tension lines.\n"
-            "  • Stitched seam lines and piping where structurally appropriate.\n"
-            "  • Lighting consistent with the original photo (highlights, shadows).\n"
-            "  • Result indistinguishable from a professional furniture catalog photo "
-            "(e.g., Crate & Barrel, Pottery Barn, West Elm product photography).\n\n"
-            "Preserve exactly: furniture silhouette, legs, frame, background, room setting."
+            f"Image 1 is a photograph of a sofa or sectional. "
+            f"Image 2 is a fabric swatch of {body_label}.\n\n"
+            f"Reupholster the entire sofa in {body_label}. Apply the fabric from "
+            "Image 2 to all upholstered surfaces: seat cushions, back cushions, "
+            "arms, and sides. Completely replace the existing fabric.\n\n"
+            "The result must look like a real product photo from a furniture "
+            "retailer — photorealistic, with natural fabric drape, folds, "
+            "seam lines, and lighting that matches the original photograph.\n\n"
+            "Keep the furniture shape, legs, frame, and background exactly as-is."
         )
 
         try:
