@@ -321,20 +321,73 @@ async def apply_fabric_openai(
             img.save(buf, format="PNG")
             return base64.b64encode(buf.getvalue()).decode()
 
-        # Send the original fabric swatch at high resolution — no tiling,
-        # no blur, no over-processing.  Let gpt-4o use its own judgment on
-        # pattern scale, just like it does in ChatGPT.
+        # ── TWO-STEP PIPELINE ─────────────────────────────────────────
+        # When you upload to ChatGPT, the model first SEES and UNDERSTANDS
+        # the fabric swatch through conversation, then generates the image
+        # with that understanding.  Our single-shot API call skipped this
+        # analysis step — just saying "apply Image 2" without telling the
+        # model what the pattern actually IS.
+        #
+        # Step A: Ask gpt-4o (text-only) to describe the fabric in detail —
+        #         pattern type, scale at furniture distance, color, texture.
+        # Step B: Feed that rich description + both images to the image
+        #         generation call so the model KNOWS what to reproduce.
+
         furn_b64   = _b64(furniture_path, 1536)
         fabric_b64 = _b64(fabric_path, 1536)
 
         body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
 
+        # ── Step A: Fabric analysis ───────────────────────────────────
+        analysis_prompt = (
+            "You are an expert textile analyst. This is a close-up swatch photograph "
+            "of an upholstery fabric. Describe it in exactly 2-3 sentences:\n"
+            "1. The pattern type (e.g., herringbone, chevron, solid, tweed, plaid, "
+            "jacquard, damask, geometric, etc.) and its visual scale — is it a "
+            "micro-pattern (fine, subtle texture visible only up close) or a bold "
+            "large-scale pattern?\n"
+            "2. The primary color(s) and undertones.\n"
+            "3. How this fabric would look on a full sofa viewed from 6-8 feet away — "
+            "would the pattern read as an overall texture, or as distinct repeating motifs?\n"
+            "\n"
+            "Be precise. Your description will be used to guide an image generator."
+        )
+
+        try:
+            analysis_resp = await client.responses.create(
+                model="gpt-4o",
+                input=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text",  "text": analysis_prompt},
+                        {"type": "input_image", "image_url": f"data:image/png;base64,{fabric_b64}"},
+                    ],
+                }],
+            )
+            fabric_description = analysis_resp.output_text.strip()
+            print(f"[OpenAI] Fabric analysis: {fabric_description}")
+        except Exception as e_analysis:
+            print(f"[OpenAI] Fabric analysis failed ({e_analysis}), using generic description")
+            fabric_description = "a textured upholstery fabric"
+
+        # ── Step B: Generate with rich description ────────────────────
         body_prompt = (
-            f"Image 1 is a photograph of a sofa or sectional. "
+            f"Image 1 is a photograph of a sofa or sectional.\n"
             f"Image 2 is a fabric swatch of {body_label}.\n\n"
-            f"Reupholster the entire sofa in {body_label}. Apply the fabric from "
-            "Image 2 to all upholstered surfaces: seat cushions, back cushions, "
-            "arms, and sides. Completely replace the existing fabric.\n\n"
+            f"FABRIC ANALYSIS: {fabric_description}\n\n"
+            f"Reupholster the entire sofa in this fabric. Apply it to ALL "
+            "upholstered surfaces: seat cushions, back cushions, arms, and sides. "
+            "Completely replace the existing fabric.\n\n"
+            "CRITICAL for pattern fidelity:\n"
+            "- Reproduce the fabric's ACTUAL pattern at the correct real-world scale. "
+            "Use the fabric analysis above to determine how the pattern should appear "
+            "on a full-size sofa.\n"
+            "- If the analysis says 'micro-pattern' or 'fine texture', the pattern "
+            "should appear as a subtle woven texture across the sofa — NOT as bold, "
+            "enlarged motifs.\n"
+            "- If the analysis says 'large-scale' or 'bold pattern', make the repeating "
+            "motifs clearly visible.\n"
+            "- Match the exact colors from Image 2.\n\n"
             "The result must look like a real product photo from a furniture "
             "retailer — photorealistic, with natural fabric drape, folds, "
             "seam lines, and lighting that matches the original photograph.\n\n"
