@@ -49,6 +49,7 @@ async def visualize_from_urls(req: CatalogVisualizeRequest):
             pillow_fabric_path=pillow_path,
             pillow_fabric_name=req.pillow_fabric_name,
             main_fabric_name=req.fabric_name,
+            fabric_url_hint=req.fabric_url,
         )
         used_mode = "ai"
     else:

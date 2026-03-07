@@ -8,3 +8,9 @@ backend/static/uploads/results/
 backend/data.db
 *.egg-info/
 .rembg/
+output/yard-cuts/
+output/manifest.json
+output/yard-cuts-errors.json
+output/progress.log
+scripts/.env
+backend/static/uploads/yard-cuts/

@@ -28,6 +28,26 @@ IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 YARD_CUTS_DIR = settings.upload_dir / "yard-cuts"
 YARD_CUTS_DIR.mkdir(parents=True, exist_ok=True)
 
+# CDN base URL for pre-generated yard-cuts (deployed to Netlify alongside swatches)
+YARD_CUTS_CDN = "https://dorellfabrics-patternlibrary.netlify.app/yard-cuts"
+
+
+import re as _re
+import shutil as _shutil
+
+
+def _build_cdn_yard_cut_url(fabric_url: str) -> "str | None":
+    """Convert a swatch CDN URL to its corresponding yard-cut CDN URL.
+
+    Input:  .../images/ace/ace-bone.jpg
+    Output: .../yard-cuts/ace/ace-bone.png
+    """
+    m = _re.search(r'/images/([^/]+)/([^/]+)\.\w+$', fabric_url)
+    if not m:
+        return None
+    slug, colorway = m.group(1), m.group(2)
+    return f"{YARD_CUTS_CDN}/{slug}/{colorway}.png"
+
 
 async def download_image(url: str) -> Path:
     """Download an image URL to a local cache file. Returns cached path.
@@ -253,6 +273,7 @@ async def apply_fabric_openai(
     pillow_fabric_path: "Path | None" = None,
     pillow_fabric_name: str = "",
     main_fabric_name: str = "",
+    fabric_url_hint: str = "",
 ) -> str:
     """
     AI fabric visualization — two-pass yard-cut pipeline.
@@ -344,46 +365,59 @@ async def apply_fabric_openai(
 
         body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
 
-        # ── Pass 1: Generate yard-cut (or use cached) ─────────────────
-        # Cache key = hash of fabric file content so we only generate once
+        # ── Pass 1: Resolve yard-cut (CDN → cache → generate) ────────
+        # Three-tier lookup:
+        #   1. Local cache (fast, survives within a single Railway deploy)
+        #   2. CDN pre-generated (Netlify, survives across deploys)
+        #   3. On-demand generation (OpenAI, slow + costs $0.06)
         fabric_hash = hashlib.sha256(fabric_path.read_bytes()).hexdigest()[:16]
         yard_cut_path = YARD_CUTS_DIR / f"yc_{fabric_hash}.png"
 
         if yard_cut_path.exists():
-            print(f"[OpenAI] Using cached yard-cut: {yard_cut_path.name}")
+            print(f"[OpenAI] Yard-cut from local cache: {yard_cut_path.name}")
         else:
-            print(f"[OpenAI] Generating yard-cut for {body_label}…")
-            # Use the same proven prompt from the window-treatment project.
-            # Since dorell_fabrics.json doesn't have repeat data, we use
-            # standard upholstery defaults (54″ wide) and let the AI
-            # determine the repeat from the swatch image itself.
-            yard_cut_prompt = (
-                "Recreate how this fabric pattern looks in a full yard cut of "
-                "fabric. Assume the fabric is 54 inches wide and show the "
-                "complete repeating pattern tiled accurately across the full "
-                "fabric width and one yard (36 inches) of length. "
-                "Maintain the exact colors, textures, and pattern details from "
-                "the original image. "
-                "Do not include any rulers, measurement markings, dimension "
-                "labels, borders, or annotations — show only the fabric itself."
-            )
+            # Tier 2: Try CDN pre-generated yard-cut
+            cdn_url = _build_cdn_yard_cut_url(fabric_url_hint) if fabric_url_hint else None
+            if cdn_url:
+                try:
+                    print(f"[OpenAI] Checking CDN for yard-cut: {cdn_url}")
+                    cdn_path = await download_image(cdn_url)
+                    _shutil.copy2(cdn_path, yard_cut_path)
+                    print(f"[OpenAI] Yard-cut from CDN, cached locally")
+                except Exception as e_cdn:
+                    print(f"[OpenAI] CDN yard-cut not available ({e_cdn}), generating on-demand…")
+                    cdn_url = None  # Fall through to generation
 
-            swatch_tmp = _resize_and_save(Image.open(fabric_path), 1536)
-            try:
-                with open(swatch_tmp.name, "rb") as sf:
-                    yc_resp = await client.images.edit(
-                        model="gpt-image-1",
-                        image=[sf],
-                        prompt=yard_cut_prompt,
-                        quality="high",
-                        size="1536x1024",
-                    )
-                yc_data = base64.b64decode(yc_resp.data[0].b64_json)
-                with open(yard_cut_path, "wb") as f:
-                    f.write(yc_data)
-                print(f"[OpenAI] Yard-cut generated and cached: {yard_cut_path.name}")
-            finally:
-                os.unlink(swatch_tmp.name)
+            # Tier 3: Generate on-demand
+            if not yard_cut_path.exists():
+                print(f"[OpenAI] Generating yard-cut on-demand for {body_label}…")
+                yard_cut_prompt = (
+                    "Recreate how this fabric pattern looks in a full yard cut of "
+                    "fabric. Assume the fabric is 54 inches wide and show the "
+                    "complete repeating pattern tiled accurately across the full "
+                    "fabric width and one yard (36 inches) of length. "
+                    "Maintain the exact colors, textures, and pattern details from "
+                    "the original image. "
+                    "Do not include any rulers, measurement markings, dimension "
+                    "labels, borders, or annotations — show only the fabric itself."
+                )
+
+                swatch_tmp = _resize_and_save(Image.open(fabric_path), 1536)
+                try:
+                    with open(swatch_tmp.name, "rb") as sf:
+                        yc_resp = await client.images.edit(
+                            model="gpt-image-1",
+                            image=[sf],
+                            prompt=yard_cut_prompt,
+                            quality="high",
+                            size="1536x1024",
+                        )
+                    yc_data = base64.b64decode(yc_resp.data[0].b64_json)
+                    with open(yard_cut_path, "wb") as f:
+                        f.write(yc_data)
+                    print(f"[OpenAI] Yard-cut generated and cached: {yard_cut_path.name}")
+                finally:
+                    os.unlink(swatch_tmp.name)
 
         # ── Pass 2: Reupholster furniture using yard-cut ──────────────
         body_prompt = (
