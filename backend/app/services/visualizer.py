@@ -40,13 +40,13 @@ def _build_cdn_yard_cut_url(fabric_url: str) -> "str | None":
     """Convert a swatch CDN URL to its corresponding yard-cut CDN URL.
 
     Input:  .../images/ace/ace-bone.jpg
-    Output: .../yard-cuts/ace/ace-bone.png
+    Output: .../yard-cuts/ace/ace-bone.webp
     """
     m = _re.search(r'/images/([^/]+)/([^/]+)\.\w+$', fabric_url)
     if not m:
         return None
     slug, colorway = m.group(1), m.group(2)
-    return f"{YARD_CUTS_CDN}/{slug}/{colorway}.png"
+    return f"{YARD_CUTS_CDN}/{slug}/{colorway}.webp"
 
 
 async def download_image(url: str) -> Path:
