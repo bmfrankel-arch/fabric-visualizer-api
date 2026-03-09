@@ -47,6 +47,7 @@ export default function VisualizePage() {
 
   const fabricSearchTimer = useRef(null);
   const furnitureSearchTimer = useRef(null);
+  const retailerScrollRef = useRef(null);
 
   // Load health check + retailers on mount
   useEffect(() => {
@@ -559,30 +560,34 @@ export default function VisualizePage() {
           </div>
 
           {/* Retailer tabs + Upload tab */}
-          <div className="retailer-tabs">
-            {retailers.map((r) => (
+          <div className="retailer-tabs-wrapper">
+            <button className="retailer-tabs-arrow" onClick={() => retailerScrollRef.current?.scrollBy({ left: -200, behavior: "smooth" })} aria-label="Scroll left">&#8249;</button>
+            <div className="retailer-tabs" ref={retailerScrollRef}>
+              {retailers.map((r) => (
+                <button
+                  key={r.key}
+                  className={`retailer-tab ${activeRetailer === r.key ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveRetailer(r.key);
+                    setFurnitureType("");
+                    setFurnitureSearch("");
+                    setSelectedFurniture(null);
+                  }}
+                >
+                  {r.name}
+                </button>
+              ))}
               <button
-                key={r.key}
-                className={`retailer-tab ${activeRetailer === r.key ? "active" : ""}`}
+                className={`retailer-tab retailer-tab-upload ${activeRetailer === "upload" ? "active" : ""}`}
                 onClick={() => {
-                  setActiveRetailer(r.key);
-                  setFurnitureType("");
-                  setFurnitureSearch("");
+                  setActiveRetailer("upload");
                   setSelectedFurniture(null);
                 }}
               >
-                {r.name}
+                ↑ Upload Frame
               </button>
-            ))}
-            <button
-              className={`retailer-tab retailer-tab-upload ${activeRetailer === "upload" ? "active" : ""}`}
-              onClick={() => {
-                setActiveRetailer("upload");
-                setSelectedFurniture(null);
-              }}
-            >
-              ↑ Upload Frame
-            </button>
+            </div>
+            <button className="retailer-tabs-arrow" onClick={() => retailerScrollRef.current?.scrollBy({ left: 200, behavior: "smooth" })} aria-label="Scroll right">&#8250;</button>
           </div>
 
           {/* Upload Frame panel */}

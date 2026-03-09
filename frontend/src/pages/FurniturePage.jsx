@@ -11,6 +11,7 @@ export default function FurniturePage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [filters, setFilters] = useState({ types: [], collections: [] });
   const searchTimer = useRef(null);
+  const retailerScrollRef = useRef(null);
 
   useEffect(() => {
     api.catalogRetailers().then((r) => {
@@ -51,20 +52,24 @@ export default function FurniturePage() {
         <p>{total} items from {retailers.find((r) => r.key === activeRetailer)?.name || "..."}</p>
       </div>
 
-      <div className="retailer-tabs" style={{ borderBottom: "1px solid var(--border)", marginBottom: "1rem" }}>
-        {retailers.map((r) => (
-          <button
-            key={r.key}
-            className={`retailer-tab ${activeRetailer === r.key ? "active" : ""}`}
-            onClick={() => {
-              setActiveRetailer(r.key);
-              setTypeFilter("");
-              setSearch("");
-            }}
-          >
-            {r.name}
-          </button>
-        ))}
+      <div className="retailer-tabs-wrapper" style={{ marginBottom: "1rem" }}>
+        <button className="retailer-tabs-arrow" onClick={() => retailerScrollRef.current?.scrollBy({ left: -200, behavior: "smooth" })} aria-label="Scroll left">&#8249;</button>
+        <div className="retailer-tabs" ref={retailerScrollRef}>
+          {retailers.map((r) => (
+            <button
+              key={r.key}
+              className={`retailer-tab ${activeRetailer === r.key ? "active" : ""}`}
+              onClick={() => {
+                setActiveRetailer(r.key);
+                setTypeFilter("");
+                setSearch("");
+              }}
+            >
+              {r.name}
+            </button>
+          ))}
+        </div>
+        <button className="retailer-tabs-arrow" onClick={() => retailerScrollRef.current?.scrollBy({ left: 200, behavior: "smooth" })} aria-label="Scroll right">&#8250;</button>
       </div>
 
       <div className="toolbar">
