@@ -276,27 +276,18 @@ async def apply_fabric_openai(
     fabric_url_hint: str = "",
 ) -> str:
     """
-    AI fabric visualization — two-pass yard-cut pipeline.
+    AI fabric visualization — direct swatch approach (ChatGPT-style).
 
-    Proven approach from the window-treatment project: the original Dorell
-    swatch photos are macro close-ups of ~2 cm of cloth.  Sending them
-    directly to image generation produces either exaggerated patterns or
-    flat solid colors.  The fix is a two-pass pipeline:
+    Simplified pipeline that sends the original fabric swatch directly to
+    gpt-image-1 alongside the furniture photo, using simple conversational
+    prompts.  This mirrors the approach that produces excellent results in
+    ChatGPT's native interface.
 
-    Pass 1 — YARD-CUT (cached per fabric):
-        gpt-image-1 takes the swatch close-up and regenerates it as a full
-        yard of fabric (54″ wide × 36″ long) at 1536×1024.  The AI
-        intelligently extrapolates the pattern at correct scale with seamless
-        tiling and accurate color.  Result is cached in YARD_CUTS_DIR so
-        this only runs once per fabric, not per visualization.
+    Pass 1 — REUPHOLSTER (always):
+        gpt-image-1 receives the furniture photo + original fabric swatch
+        and reupholsters all fabric surfaces.
 
-    Pass 2 — REUPHOLSTER (always):
-        gpt-image-1 takes the yard-cut + furniture photo and applies the
-        fabric to all upholstered surfaces.  Because the yard-cut already
-        shows the fabric at furniture-relevant scale, the AI reproduces the
-        pattern faithfully.
-
-    Pass 3 — ACCENT PILLOWS (only when pillow_fabric_path is given):
+    Pass 2 — ACCENT PILLOWS (only when pillow_fabric_path is given):
         gpt-image-1 adds/replaces accent pillows with a separate fabric.
 
     Falls back to plain CV pipeline if OpenAI key is absent or call fails.
@@ -314,9 +305,9 @@ async def apply_fabric_openai(
         client = AsyncOpenAI(api_key=settings.openai_api_key)
 
         has_pillows = pillow_fabric_path is not None and pillow_fabric_path.exists()
-        print(f"[OpenAI] apply_fabric_openai v8-yardcut starting (pillows={'yes' if has_pillows else 'no'})")
+        print(f"[OpenAI] apply_fabric_openai v9-direct starting (pillows={'yes' if has_pillows else 'no'})")
 
-        # ── Helpers: resize and write to temp file ─────────────────────
+        # ── Helper: resize and write to temp file ──────────────────────
         def _resize_and_save(img: Image.Image, max_px: int) -> tempfile.NamedTemporaryFile:
             img = img.convert("RGB")
             if max(img.size) > max_px:
@@ -330,124 +321,35 @@ async def apply_fabric_openai(
             tmp.flush(); tmp.close()
             return tmp
 
-        # ── TWO-PASS PIPELINE (proven in window-treatment project) ────
+        body_label = f'"{main_fabric_name}"' if main_fabric_name else "this fabric"
+
+        # ── Pass 1: Reupholster furniture using original swatch ────────
         #
-        # The original swatch photos are macro close-ups showing thread-
-        # level detail of ~2 cm of cloth.  When sent directly to image
-        # generation, the AI either exaggerates the pattern (bold zigzags)
-        # or ignores it entirely (plain solid).
-        #
-        # The window-treatment project solved this by having gpt-image-1
-        # FIRST generate a "yard-cut" view — the AI intelligently
-        # extrapolates from the close-up swatch to show what a full yard
-        # of fabric looks like, with correct pattern scale, seamless
-        # tiling, and proper color fidelity.
-        #
-        # Pass 1 — YARD-CUT GENERATION (cached per fabric):
-        #   gpt-image-1 takes the swatch close-up → produces a 1536×1024
-        #   image showing the fabric at real-world scale.
-        #
-        # Pass 2 — REUPHOLSTER:
-        #   gpt-image-1 takes the yard-cut + furniture photo → applies
-        #   the fabric to all upholstered surfaces.
+        # Key insight from ChatGPT testing: sending the original fabric
+        # swatch directly (no intermediate "yard-cut" generation) with a
+        # simple, conversational prompt produces far better fabric fidelity
+        # than the previous over-engineered multi-pass pipeline.
 
-        def _b64(path: Path, max_px: int = 1024) -> str:
-            """Load, resize, and base64-encode an image as PNG."""
-            img = Image.open(path).convert("RGB")
-            if max(img.size) > max_px:
-                r = max_px / max(img.size)
-                img = img.resize(
-                    (int(img.width * r), int(img.height * r)), Image.LANCZOS
-                )
-            buf = BytesIO()
-            img.save(buf, format="PNG")
-            return base64.b64encode(buf.getvalue()).decode()
-
-        body_label = f'"{main_fabric_name}"' if main_fabric_name else "the upholstery fabric"
-
-        # ── Pass 1: Resolve yard-cut (CDN → cache → generate) ────────
-        # Three-tier lookup:
-        #   1. Local cache (fast, survives within a single Railway deploy)
-        #   2. CDN pre-generated (Netlify, survives across deploys)
-        #   3. On-demand generation (OpenAI, slow + costs $0.06)
-        fabric_hash = hashlib.sha256(fabric_path.read_bytes()).hexdigest()[:16]
-        yard_cut_path = YARD_CUTS_DIR / f"yc_{fabric_hash}.png"
-
-        if yard_cut_path.exists():
-            print(f"[OpenAI] Yard-cut from local cache: {yard_cut_path.name}")
-        else:
-            # Tier 2: Try CDN pre-generated yard-cut
-            cdn_url = _build_cdn_yard_cut_url(fabric_url_hint) if fabric_url_hint else None
-            if cdn_url:
-                try:
-                    print(f"[OpenAI] Checking CDN for yard-cut: {cdn_url}")
-                    cdn_path = await download_image(cdn_url)
-                    _shutil.copy2(cdn_path, yard_cut_path)
-                    print(f"[OpenAI] Yard-cut from CDN, cached locally")
-                except Exception as e_cdn:
-                    print(f"[OpenAI] CDN yard-cut not available ({e_cdn}), generating on-demand…")
-                    cdn_url = None  # Fall through to generation
-
-            # Tier 3: Generate on-demand
-            if not yard_cut_path.exists():
-                print(f"[OpenAI] Generating yard-cut on-demand for {body_label}…")
-                yard_cut_prompt = (
-                    "Recreate how this fabric pattern looks in a full yard cut of "
-                    "fabric. Assume the fabric is 54 inches wide and show the "
-                    "complete repeating pattern tiled accurately across the full "
-                    "fabric width and one yard (36 inches) of length. "
-                    "Maintain the exact colors, textures, and pattern details from "
-                    "the original image. "
-                    "Do not include any rulers, measurement markings, dimension "
-                    "labels, borders, or annotations — show only the fabric itself."
-                )
-
-                swatch_tmp = _resize_and_save(Image.open(fabric_path), 1536)
-                try:
-                    with open(swatch_tmp.name, "rb") as sf:
-                        yc_resp = await client.images.edit(
-                            model="gpt-image-1",
-                            image=[sf],
-                            prompt=yard_cut_prompt,
-                            quality="high",
-                            size="1536x1024",
-                        )
-                    yc_data = base64.b64decode(yc_resp.data[0].b64_json)
-                    with open(yard_cut_path, "wb") as f:
-                        f.write(yc_data)
-                    print(f"[OpenAI] Yard-cut generated and cached: {yard_cut_path.name}")
-                finally:
-                    os.unlink(swatch_tmp.name)
-
-        # ── Pass 2: Reupholster furniture using yard-cut ──────────────
         body_prompt = (
-            f"Image 1 is a photograph of a sofa or sectional.\n"
-            f"Image 2 is a full yard-cut view of {body_label} — this is how "
-            f"the fabric looks at real-world furniture scale.\n\n"
-            f"Reupholster the entire sofa using EXACTLY this fabric. Apply it to "
-            "ALL upholstered surfaces: seat cushions, back cushions, arms, and "
-            "sides. Completely replace the existing fabric.\n\n"
-            "CRITICAL REQUIREMENTS:\n"
-            "- The fabric COLOR must match Image 2 exactly — copy the precise "
-            "hue, saturation, and value. Do not lighten, darken, or shift it.\n"
-            "- The fabric PATTERN and TEXTURE must match Image 2 — reproduce "
-            "the same weave, pattern type, and visual texture at the scale "
-            "shown in the yard-cut image.\n"
-            "- Photorealistic: natural fabric drape, folds, seam lines, and "
-            "lighting that matches the original photograph.\n"
-            "- Keep the furniture shape, legs, frame, and background exactly "
-            "as-is.\n\n"
-            "Output a single photorealistic furniture product photograph."
+            f"I want to reupholster this sofa using {body_label}.\n\n"
+            "Image 1 is the furniture photograph.\n"
+            "Image 2 is a photo of the fabric I want to use.\n\n"
+            "Recreate this exact sofa with all of its upholstered surfaces "
+            "(seat cushions, back cushions, arms, and sides) reupholstered "
+            "in the fabric from Image 2. Remove any existing throw pillows.\n\n"
+            "Match the fabric's exact color, pattern, and texture from Image 2. "
+            "Keep the furniture shape, legs, frame, and background exactly as-is. "
+            "The result should look like a real product photograph."
         )
 
-        furn_tmp = _resize_and_save(Image.open(furniture_path), 1536)
-        yc_tmp   = _resize_and_save(Image.open(yard_cut_path),  1536)
+        furn_tmp   = _resize_and_save(Image.open(furniture_path), 1536)
+        fabric_tmp = _resize_and_save(Image.open(fabric_path), 1536)
 
         try:
-            with open(furn_tmp.name, "rb") as ff, open(yc_tmp.name, "rb") as yf:
+            with open(furn_tmp.name, "rb") as ff, open(fabric_tmp.name, "rb") as sf:
                 r = await client.images.edit(
                     model="gpt-image-1",
-                    image=[ff, yf],
+                    image=[ff, sf],
                     prompt=body_prompt,
                     quality="high",
                     size="1536x1024",
@@ -455,9 +357,9 @@ async def apply_fabric_openai(
             pass1_data = base64.b64decode(r.data[0].b64_json)
         finally:
             os.unlink(furn_tmp.name)
-            os.unlink(yc_tmp.name)
+            os.unlink(fabric_tmp.name)
 
-        print("[OpenAI] Pass 1 (body fabric) done")
+        print("[OpenAI] Pass 1 (body reupholster) done")
 
         # If no pillow fabric, save Pass-1 result and return
         if not has_pillows:
@@ -467,35 +369,25 @@ async def apply_fabric_openai(
             print(f"[OpenAI] done (no pillows): {result_filename}")
             return result_filename
 
-        # ── PASS 2 ─ Accent pillows only ──────────────────────────────
+        # ── Pass 2: Accent pillows ─────────────────────────────────────
         pass1_pil  = Image.open(BytesIO(pass1_data))
         pillow_pil = Image.open(pillow_fabric_path)
 
         pass1_tmp  = _resize_and_save(pass1_pil,  1536)
-        pillow_tmp = _resize_and_save(pillow_pil, 1024)
+        pillow_tmp = _resize_and_save(pillow_pil, 1536)
 
-        pillow_label = f'"{pillow_fabric_name}"' if pillow_fabric_name else "the fabric swatch (Image 2)"
+        pillow_label = f'"{pillow_fabric_name}"' if pillow_fabric_name else "the fabric in Image 2"
 
         pillow_prompt = (
-            "Image 1 is a photorealistic sofa/sectional photograph.\n"
-            "Image 2 is a fabric swatch for accent pillows.\n"
-            "\n"
-            "ACCENT PILLOWS are the small, loose, purely decorative pillows propped "
-            "in front of the sofa's back cushions. They are NOT seat cushions "
-            "(horizontal seating surface), NOT back cushions (vertical back support), "
-            "and NOT armrests. Accent pillows are ornamental — no structural role.\n"
-            "\n"
-            f"YOUR ONLY TASK: Apply {pillow_label} to the accent pillows.\n"
-            "  • Accent pillows already present → re-cover them with this fabric.\n"
-            "  • No accent pillows visible → add 2–3 tasteful ones in front of the back cushions.\n"
-            "\n"
-            "DO NOT CHANGE ANYTHING ELSE:\n"
-            "  • Seat cushions — leave exactly as-is\n"
-            "  • Back cushions — leave exactly as-is\n"
-            "  • Arms / armrests — leave exactly as-is\n"
-            "  • Background, floor, legs, frame — leave exactly as-is\n"
-            "\n"
-            "Output a single fully photorealistic furniture catalog photograph."
+            f"I want to add accent throw pillows to this sofa using {pillow_label}.\n\n"
+            "Image 1 is the sofa photograph.\n"
+            "Image 2 is the fabric I want for the pillows.\n\n"
+            "Add 2-3 accent throw pillows to the sofa using the fabric from "
+            "Image 2. If there are already pillows, replace their fabric. "
+            "Match the exact color, pattern, and texture from Image 2.\n\n"
+            "Do not change the sofa upholstery, shape, legs, frame, or background. "
+            "Only add or re-cover the accent pillows. "
+            "The result should look like a real product photograph."
         )
 
         try:
