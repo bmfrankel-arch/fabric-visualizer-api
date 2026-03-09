@@ -1,3 +1,7 @@
+import asyncio
+import hashlib
+import shutil
+from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from ..database import get_db
@@ -9,6 +13,7 @@ from ..services.visualizer import (
     apply_fabric_openai,
     refine_with_openai,
     download_image,
+    RESULTS_DIR,
 )
 
 router = APIRouter(prefix="/api/visualize", tags=["visualize"])
@@ -28,21 +33,43 @@ class CatalogVisualizeRequest(BaseModel):
 @router.post("/from-urls")
 async def visualize_from_urls(req: CatalogVisualizeRequest):
     """Visualize using external image URLs from the catalog."""
+    is_cv = not (req.mode == "ai" and settings.openai_api_key)
+
+    # ── Result cache (CV mode only) — instant return for exact same combo ──
+    combo_hash = ""
+    if is_cv:
+        combo_hash = hashlib.sha256(
+            f"{req.fabric_url}|{req.furniture_url}".encode()
+        ).hexdigest()[:16]
+        cached_result = RESULTS_DIR / f"viz_cache_{combo_hash}.jpg"
+        if cached_result.exists():
+            return {
+                "result_filename": cached_result.name,
+                "result_url": f"/uploads/results/{cached_result.name}",
+                "fabric_name": req.fabric_name,
+                "furniture_name": req.furniture_name,
+                "mode": "cv",
+                "pillow_fabric_name": "",
+            }
+
+    # ── Download images in parallel ──
     try:
-        fabric_path = await download_image(req.fabric_url)
-        furniture_path = await download_image(req.furniture_url)
+        fabric_path, furniture_path = await asyncio.gather(
+            download_image(req.fabric_url),
+            download_image(req.furniture_url),
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to download images: {e}")
 
     # Download pillow fabric if provided (AI mode only)
     pillow_path = None
-    if req.pillow_fabric_url and req.mode == "ai" and settings.openai_api_key:
+    if req.pillow_fabric_url and not is_cv:
         try:
             pillow_path = await download_image(req.pillow_fabric_url)
         except Exception:
             pillow_path = None  # Non-fatal — proceed without pillow fabric
 
-    if req.mode == "ai" and settings.openai_api_key:
+    if not is_cv:
         result_filename = await apply_fabric_openai(
             fabric_path,
             furniture_path,
@@ -55,6 +82,13 @@ async def visualize_from_urls(req: CatalogVisualizeRequest):
     else:
         result_filename = apply_fabric_to_furniture(fabric_path, furniture_path)
         used_mode = "cv"
+        # Save a copy under the combo hash for future cache hits
+        if combo_hash:
+            cached_result = RESULTS_DIR / f"viz_cache_{combo_hash}.jpg"
+            try:
+                shutil.copy2(RESULTS_DIR / result_filename, cached_result)
+            except Exception:
+                pass  # Non-fatal
 
     return {
         "result_filename": result_filename,

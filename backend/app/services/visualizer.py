@@ -25,6 +25,9 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 IMAGE_CACHE_DIR = settings.upload_dir / "cache"
 IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+MASK_CACHE_DIR = settings.upload_dir / "mask-cache"
+MASK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
 YARD_CUTS_DIR = settings.upload_dir / "yard-cuts"
 YARD_CUTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -160,6 +163,27 @@ def _create_upholstery_mask(furniture_img: Image.Image) -> np.ndarray:
     return refined_mask
 
 
+def _get_or_create_mask(furniture_path: Path, furniture_img: Image.Image) -> np.ndarray:
+    """Return cached upholstery mask or compute and cache it.
+
+    The mask depends only on the furniture image, so when a user tries
+    different fabrics on the same piece we skip the expensive rembg +
+    GrabCut pipeline entirely (~2-4 s saved).
+    """
+    file_hash = hashlib.sha256(furniture_path.read_bytes()).hexdigest()[:16]
+    cache_path = MASK_CACHE_DIR / f"{file_hash}.npy"
+
+    if cache_path.exists():
+        mask = np.load(cache_path)
+        # Verify dimensions match (in case image was re-downloaded at different size)
+        if mask.shape == (furniture_img.size[1], furniture_img.size[0]):
+            return mask
+
+    mask = _create_upholstery_mask(furniture_img)
+    np.save(cache_path, mask)
+    return mask
+
+
 def _tile_fabric(fabric_img: Image.Image, target_size: tuple[int, int], scale: float = None) -> Image.Image:
     """Tile fabric texture to fill the target size.
 
@@ -236,8 +260,8 @@ def apply_fabric_to_furniture(
 
     w, h = furniture_img.size
 
-    # Step 1: Create upholstery mask
-    mask = _create_upholstery_mask(furniture_img)
+    # Step 1: Create upholstery mask (cached per furniture image)
+    mask = _get_or_create_mask(furniture_path, furniture_img)
 
     # Step 2: Tile fabric to fill furniture dimensions
     fabric_tiled = _tile_fabric(fabric_img, (w, h))
@@ -259,10 +283,10 @@ def apply_fabric_to_furniture(
 
     result = (fabric_lit_rgba * mask_3d + furniture_array * (1 - mask_3d)).astype(np.uint8)
 
-    # Save result
+    # Save result (JPEG is ~300-500ms faster than PNG for photo content)
     result_img = Image.fromarray(result)
-    result_filename = f"viz_{uuid.uuid4().hex}.png"
-    result_img.save(RESULTS_DIR / result_filename, "PNG")
+    result_filename = f"viz_{uuid.uuid4().hex}.jpg"
+    result_img.convert("RGB").save(RESULTS_DIR / result_filename, "JPEG", quality=90)
 
     return result_filename
 

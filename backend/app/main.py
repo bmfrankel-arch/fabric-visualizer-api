@@ -30,6 +30,17 @@ app.include_router(catalog.router)
 @app.on_event("startup")
 def startup():
     init_db()
+    # Preload rembg U2-Net model so the first visualization request
+    # doesn't pay the 2-3 second cold-start penalty.
+    try:
+        from rembg import remove as _rembg_remove
+        from PIL import Image as _Image
+        import numpy as _np
+        _dummy = _Image.fromarray(_np.zeros((10, 10, 3), dtype=_np.uint8))
+        _rembg_remove(_dummy)
+        print("[startup] rembg U2-Net model preloaded")
+    except Exception as e:
+        print(f"[startup] rembg preload skipped: {e}")
 
 
 @app.get("/api/health")
