@@ -159,6 +159,11 @@ RETAILERS = {
         "file": "livingspaces_catalog.json",
         "logo": "",
     },
+    "roomstogo": {
+        "name": "Rooms To Go",
+        "file": "roomstogo_catalog.json",
+        "logo": "",
+    },
 }
 
 _furniture_cache: dict[str, list] = {}
