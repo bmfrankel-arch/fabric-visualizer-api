@@ -164,6 +164,36 @@ RETAILERS = {
         "file": "roomstogo_catalog.json",
         "logo": "",
     },
+    "crlaine": {
+        "name": "CR Laine",
+        "file": "crlaine_catalog.json",
+        "logo": "",
+    },
+    "maxhome": {
+        "name": "Max Home",
+        "file": "maxhome_catalog.json",
+        "logo": "",
+    },
+    "rowe": {
+        "name": "Rowe / Robin Bruce",
+        "file": "rowe_catalog.json",
+        "logo": "",
+    },
+    "havertys": {
+        "name": "Havertys",
+        "file": "havertys_catalog.json",
+        "logo": "",
+    },
+    "rh": {
+        "name": "RH",
+        "file": "rh_catalog.json",
+        "logo": "",
+    },
+    "hickorychair": {
+        "name": "Hickory Chair",
+        "file": "hickorychair_catalog.json",
+        "logo": "",
+    },
 }
 
 _furniture_cache: dict[str, list] = {}
