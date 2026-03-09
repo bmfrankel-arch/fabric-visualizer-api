@@ -2,7 +2,7 @@
   {
     "name": "Cooper Sofa",
     "sku": "10103644",
-    "price": 59999,
+    "price": 599.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Cooper",
@@ -138,7 +138,7 @@
   {
     "name": "Bellingham Sofa",
     "sku": "1013215P",
-    "price": 79999,
+    "price": 799.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Bellingham",
@@ -155,7 +155,7 @@
   {
     "name": "Harmonie Sofa",
     "sku": "10191524",
-    "price": 109999,
+    "price": 1099.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Harmonie",
@@ -342,7 +342,7 @@
   {
     "name": "Meadow Park Dual Power Reclining Sofa",
     "sku": "11066330",
-    "price": 129999,
+    "price": 1299.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Meadow Park",
@@ -444,7 +444,7 @@
   {
     "name": "Lunelle Sofa",
     "sku": "10114851",
-    "price": 54999,
+    "price": 549.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Lunelle",
@@ -546,7 +546,7 @@
   {
     "name": "Hancock Park Sofa",
     "sku": "10108721",
-    "price": 89999,
+    "price": 899.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Hancock Park",
@@ -682,7 +682,7 @@
   {
     "name": "Elena Court Sofa",
     "sku": "10195027",
-    "price": 59999,
+    "price": 599.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Elena Court",
@@ -699,7 +699,7 @@
   {
     "name": "Alahandra Sofa",
     "sku": "83000821",
-    "price": 124999,
+    "price": 1249.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Alahandra",
@@ -733,7 +733,7 @@
   {
     "name": "Elena Court Sofa",
     "sku": "10195015",
-    "price": 59999,
+    "price": 599.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Elena Court",
@@ -767,7 +767,7 @@
   {
     "name": "Meadow Park Non-Power Reclining Sofa",
     "sku": "11166318",
-    "price": 89999,
+    "price": 899.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Meadow Park",
@@ -835,7 +835,7 @@
   {
     "name": "Harmonie Sofa",
     "sku": "10191548",
-    "price": 109999,
+    "price": 1099.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Harmonie",
@@ -852,7 +852,7 @@
   {
     "name": "Bellingham Sofa",
     "sku": "1013232P",
-    "price": 79999,
+    "price": 799.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Bellingham",
@@ -920,7 +920,7 @@
   {
     "name": "Bellingham Sofa",
     "sku": "1013224P",
-    "price": 79999,
+    "price": 799.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Bellingham",
@@ -988,7 +988,7 @@
   {
     "name": "Caperiole Sofa",
     "sku": "83000441",
-    "price": 159999,
+    "price": 1599.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Caperiole",
@@ -1005,7 +1005,7 @@
   {
     "name": "Bellingham Sofa",
     "sku": "1013219P",
-    "price": 79999,
+    "price": 799.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Bellingham",
@@ -1022,7 +1022,7 @@
   {
     "name": "Cooper Sofa",
     "sku": "10103656",
-    "price": 59999,
+    "price": 599.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Cooper",
@@ -1073,7 +1073,7 @@
   {
     "name": "Bellingham Sofa",
     "sku": "1013235P",
-    "price": 79999,
+    "price": 799.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Bellingham",
@@ -1158,7 +1158,7 @@
   {
     "name": "Bellingham Sofa",
     "sku": "1013234P",
-    "price": 79999,
+    "price": 799.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Bellingham",
@@ -1464,7 +1464,7 @@
   {
     "name": "Meadow Park Dual Power Reclining Sofa",
     "sku": "11066328",
-    "price": 129999,
+    "price": 1299.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Meadow Park",
@@ -1481,7 +1481,7 @@
   {
     "name": "Meadow Park Non-Power Reclining Sofa",
     "sku": "11166332",
-    "price": 89999,
+    "price": 899.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Meadow Park",
@@ -1498,7 +1498,7 @@
   {
     "name": "Meadow Park Non-Power Reclining Sofa",
     "sku": "11166320",
-    "price": 89999,
+    "price": 899.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Meadow Park",
@@ -1515,7 +1515,7 @@
   {
     "name": "Meadow Park Dual Power Reclining Sofa",
     "sku": "11066316",
-    "price": 129999,
+    "price": 1299.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Meadow Park",
@@ -1566,7 +1566,7 @@
   {
     "name": "Harmonie Sofa",
     "sku": "10191536",
-    "price": 109999,
+    "price": 1099.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Harmonie",
@@ -1583,7 +1583,7 @@
   {
     "name": "Harmonie Sofa",
     "sku": "10191550",
-    "price": 109999,
+    "price": 1099.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Harmonie",
@@ -1600,7 +1600,7 @@
   {
     "name": "Harmonie Sofa",
     "sku": "10191562",
-    "price": 109999,
+    "price": 1099.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Harmonie",
@@ -1634,7 +1634,7 @@
   {
     "name": "Hugus Sofa",
     "sku": "18000214",
-    "price": 131999,
+    "price": 1319.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Hugus",
@@ -1651,7 +1651,7 @@
   {
     "name": "Adlerspoint Sofa",
     "sku": "83007015",
-    "price": 199999,
+    "price": 1999.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Adlerspoint",
@@ -1685,7 +1685,7 @@
   {
     "name": "Columa Sofa",
     "sku": "83000073",
-    "price": 129999,
+    "price": 1299.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Columa",
@@ -1702,7 +1702,7 @@
   {
     "name": "Dunellen Sofa",
     "sku": "83000403",
-    "price": 182999,
+    "price": 1829.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Dunellen",
@@ -1770,7 +1770,7 @@
   {
     "name": "Sabir Sofa",
     "sku": "83025467",
-    "price": 139999,
+    "price": 1399.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Sabir",
@@ -1787,7 +1787,7 @@
   {
     "name": "Chatterleigh Sofa",
     "sku": "83000364",
-    "price": 174999,
+    "price": 1749.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Chatterleigh",
@@ -1804,7 +1804,7 @@
   {
     "name": "Beecast Sofa",
     "sku": "83025417",
-    "price": 134999,
+    "price": 1349.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Beecast",
@@ -1821,7 +1821,7 @@
   {
     "name": "Azurelee Sofa",
     "sku": "83000516",
-    "price": 208999,
+    "price": 2089.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Azurelee",
@@ -1838,7 +1838,7 @@
   {
     "name": "Mipolomol Sofa",
     "sku": "83000554",
-    "price": 239999,
+    "price": 2399.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Mipolomol",
@@ -1872,7 +1872,7 @@
   {
     "name": "Adlerspoint Sofa",
     "sku": "83007128",
-    "price": 199999,
+    "price": 1999.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Adlerspoint",
@@ -1889,7 +1889,7 @@
   {
     "name": "Caperiole Sofa",
     "sku": "18083282",
-    "price": 159999,
+    "price": 1599.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Caperiole",
@@ -1940,7 +1940,7 @@
   {
     "name": "Alamogordo Sofa",
     "sku": "83000150",
-    "price": 229999,
+    "price": 2299.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Alamogordo",
@@ -2025,7 +2025,7 @@
   {
     "name": "Breezewick Sofa",
     "sku": "83000338",
-    "price": 182999,
+    "price": 1829.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Breezewick",
@@ -2042,7 +2042,7 @@
   {
     "name": "Breezewick Sofa",
     "sku": "83000326",
-    "price": 182999,
+    "price": 1829.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Breezewick",
@@ -2093,7 +2093,7 @@
   {
     "name": "Blinn Sofa",
     "sku": "18000315",
-    "price": 279999,
+    "price": 2799.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Blinn",
@@ -2144,7 +2144,7 @@
   {
     "name": "Azurelee Sofa",
     "sku": "83000528",
-    "price": 208999,
+    "price": 2089.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Azurelee",
@@ -2161,7 +2161,7 @@
   {
     "name": "Columa Sofa",
     "sku": "83000061",
-    "price": 129999,
+    "price": 1299.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Columa",
@@ -2195,7 +2195,7 @@
   {
     "name": "Martin 2 Pc Right Arm Chaise Sectional",
     "sku": "1203132P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Martin 2 Pc Right Arm",
@@ -2229,7 +2229,7 @@
   {
     "name": "East Side Chaise Sofa",
     "sku": "1074182P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "East Side",
@@ -2348,7 +2348,7 @@
   {
     "name": "Delcrest 2 Pc Sectional",
     "sku": "1173761P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Delcrest 2 Pc",
@@ -2399,7 +2399,7 @@
   {
     "name": "The Flow 5 Pc Sectional With Bumper Ottoman",
     "sku": "1129001P",
-    "price": 199999,
+    "price": 1999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "The Flow 5 Pc",
@@ -2450,7 +2450,7 @@
   {
     "name": "Dillon 5 Pc Dual Power Reclining Sectional",
     "sku": "1548991P",
-    "price": 329999,
+    "price": 3299.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Dillon 5 Pc",
@@ -2535,7 +2535,7 @@
   {
     "name": "The Challenge 2 Pc Right Arm Chaise Sectional",
     "sku": "1174289P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "The Challenge 2 Pc Right Arm",
@@ -2586,7 +2586,7 @@
   {
     "name": "Moreau Street 2 Pc Right Arm Chaise Sectional",
     "sku": "1000928P",
-    "price": 149999,
+    "price": 1499.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Moreau Street 2 Pc Right Arm",
@@ -2722,7 +2722,7 @@
   {
     "name": "Aspen 5 Pc Dual Power Reclining Sectional",
     "sku": "1009031P",
-    "price": 309999,
+    "price": 3099.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Aspen 5 Pc",
@@ -2841,7 +2841,7 @@
   {
     "name": "Weston 3 Pc Sectional",
     "sku": "1189173P",
-    "price": 199999,
+    "price": 1999.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Weston 3 Pc",
@@ -2892,7 +2892,7 @@
   {
     "name": "The Challenge 2 Pc Left Arm Chaise Sectional",
     "sku": "1154290P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "The Challenge 2 Pc Left Arm",
@@ -2977,7 +2977,7 @@
   {
     "name": "Hudson Street 3 Pc Sectional",
     "sku": "1309564P",
-    "price": 259999,
+    "price": 2599.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Hudson Street 3 Pc",
@@ -3028,7 +3028,7 @@
   {
     "name": "Soho Place Chaise Sofa",
     "sku": "1083343P",
-    "price": 89999,
+    "price": 899.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Soho Place",
@@ -3198,7 +3198,7 @@
   {
     "name": "Moreau Street 3 Pc Right Arm Chaise Sectional",
     "sku": "1640928P",
-    "price": 239999,
+    "price": 2399.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Moreau Street 3 Pc Right Arm",
@@ -3232,7 +3232,7 @@
   {
     "name": "The Challenge 2 Pc Right Arm Chaise Sectional",
     "sku": "1174290P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "The Challenge 2 Pc Right Arm",
@@ -3283,7 +3283,7 @@
   {
     "name": "Dillon 5 Pc Dual Power Reclining Sectional",
     "sku": "1538991P",
-    "price": 329999,
+    "price": 3299.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Dillon 5 Pc",
@@ -3334,7 +3334,7 @@
   {
     "name": "Aberlin Court 3 Pc Left Arm Chaise Sectional",
     "sku": "1284620P",
-    "price": 199999,
+    "price": 1999.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Aberlin Court 3 Pc Left Arm",
@@ -3351,7 +3351,7 @@
   {
     "name": "Soho Place Chaise Sofa",
     "sku": "1083342P",
-    "price": 89999,
+    "price": 899.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Soho Place",
@@ -3368,7 +3368,7 @@
   {
     "name": "Marcola 2 Pc Right Arm Chaise Sectional",
     "sku": "1212372P",
-    "price": 119999,
+    "price": 1199.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Marcola 2 Pc Right Arm",
@@ -3453,7 +3453,7 @@
   {
     "name": "Delcrest 2 Pc Sectional",
     "sku": "1173762P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Delcrest 2 Pc",
@@ -3470,7 +3470,7 @@
   {
     "name": "Benton Place 2 Pc Left Arm Chaise Sectional",
     "sku": "1210467P",
-    "price": 149999,
+    "price": 1499.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Benton Place 2 Pc Left Arm",
@@ -3487,7 +3487,7 @@
   {
     "name": "Aspen 3 Pc Dual Power Reclining Sectional",
     "sku": "1079031P",
-    "price": 229999,
+    "price": 2299.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Aspen 3 Pc",
@@ -3521,7 +3521,7 @@
   {
     "name": "Meriwether 3 Pc Power Slider Sectional",
     "sku": "1668055P",
-    "price": 149999,
+    "price": 1499.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Meriwether 3 Pc",
@@ -3538,7 +3538,7 @@
   {
     "name": "East Side Chaise Sofa",
     "sku": "1074181P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "East Side",
@@ -3555,7 +3555,7 @@
   {
     "name": "The Challenge 2 Pc Left Arm Chaise Sectional",
     "sku": "1154289P",
-    "price": 99999,
+    "price": 999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "The Challenge 2 Pc Left Arm",
@@ -3572,7 +3572,7 @@
   {
     "name": "Cawdor 2 Pc Sectional",
     "sku": "83000340",
-    "price": 235999,
+    "price": 2359.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Cawdor 2 Pc",
@@ -3623,7 +3623,7 @@
   {
     "name": "Harper 2 Pc Left Arm Chaise XL Sectional",
     "sku": "1329755P",
-    "price": 189999,
+    "price": 1899.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Harper 2 Pc Left Arm",
@@ -3640,7 +3640,7 @@
   {
     "name": "Parkview Sleeper Sectional",
     "sku": "1079222P",
-    "price": 244999,
+    "price": 2449.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Parkview",
@@ -3657,7 +3657,7 @@
   {
     "name": "Haskins Sleeper Sectional",
     "sku": "1184464P",
-    "price": 234999,
+    "price": 2349.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Haskins",
@@ -3674,7 +3674,7 @@
   {
     "name": "Bradshaw Place 7 Pc Non-Power Reclining Sectional",
     "sku": "1435785P",
-    "price": 239999,
+    "price": 2399.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Bradshaw Place 7 Pc",
@@ -3708,7 +3708,7 @@
   {
     "name": "Cawdor 2 Pc Sectional",
     "sku": "83000352",
-    "price": 235999,
+    "price": 2359.99,
     "compare_at_price": 0,
     "on_sale": false,
     "collection": "Cawdor 2 Pc",
@@ -3776,7 +3776,7 @@
   {
     "name": "Cabritoro 3 Pc Sectional",
     "sku": "83000174",
-    "price": 299999,
+    "price": 2999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Cabritoro 3 Pc",
@@ -3810,7 +3810,7 @@
   {
     "name": "Brangas 3 Pc Sectional",
     "sku": "83000162",
-    "price": 299999,
+    "price": 2999.99,
     "compare_at_price": 0,
     "on_sale": true,
     "collection": "Brangas 3 Pc",
