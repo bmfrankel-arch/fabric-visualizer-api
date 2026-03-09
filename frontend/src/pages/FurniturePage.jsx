@@ -10,6 +10,7 @@ export default function FurniturePage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [filters, setFilters] = useState({ types: [], collections: [] });
+  const [detailItem, setDetailItem] = useState(null);
   const searchTimer = useRef(null);
   const retailerScrollRef = useRef(null);
 
@@ -106,7 +107,7 @@ export default function FurniturePage() {
           {items.map((item, i) => {
             const imgUrl = getImg(item);
             return (
-              <div key={`${item.sku || item.name}-${i}`} className="image-card">
+              <div key={`${item.sku || item.name}-${i}`} className="image-card" onClick={() => setDetailItem(item)}>
                 {imgUrl ? (
                   <img src={imgUrl} alt={item.name} loading="lazy" />
                 ) : (
@@ -139,6 +140,44 @@ export default function FurniturePage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Furniture Detail Modal */}
+      {detailItem && (
+        <div className="furniture-detail-modal" onClick={() => setDetailItem(null)}>
+          <div className="furniture-detail-content" onClick={(e) => e.stopPropagation()}>
+            <button className="furniture-detail-close" onClick={() => setDetailItem(null)}>&times;</button>
+            {getImg(detailItem) && (
+              <img src={getImg(detailItem)} alt={detailItem.name} />
+            )}
+            <div className="furniture-detail-info">
+              <h2>{detailItem.name}</h2>
+              <div className="furniture-detail-meta">
+                {detailItem.price && (
+                  <span className="furniture-detail-price">
+                    ${detailItem.price.toLocaleString()}
+                    {detailItem.compare_at_price && detailItem.compare_at_price > detailItem.price && (
+                      <s>${detailItem.compare_at_price.toLocaleString()}</s>
+                    )}
+                  </span>
+                )}
+                {detailItem.collection && <span className="furniture-detail-tag">{detailItem.collection}</span>}
+                {detailItem.type && <span className="furniture-detail-tag">{detailItem.type}</span>}
+                {detailItem.material && <span className="furniture-detail-tag">{detailItem.material}</span>}
+              </div>
+              {detailItem.url && (
+                <a
+                  href={detailItem.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="furniture-detail-link"
+                >
+                  View on {retailers.find((r) => r.key === activeRetailer)?.name || "retailer"} &rarr;
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </>

@@ -679,6 +679,18 @@ export default function VisualizePage() {
                         ) : (
                           <div className="no-image">No image</div>
                         )}
+                        {item.url && (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="furniture-card-link"
+                            onClick={(e) => e.stopPropagation()}
+                            title="View on retailer site"
+                          >
+                            &#8599;
+                          </a>
+                        )}
                         <div className="furniture-card-info">
                           <h4>{item.name}</h4>
                           {item.price && (
