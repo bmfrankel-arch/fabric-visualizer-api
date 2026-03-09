@@ -113,13 +113,13 @@ export default function FurniturePage() {
                 ) : (
                   <div style={{
                     width: "100%",
-                    height: 160,
+                    height: 200,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: "var(--text-secondary)",
                     fontSize: "0.75rem",
-                    background: "var(--bg)",
+                    background: "#f5f5f5",
                   }}>
                     No image
                   </div>
