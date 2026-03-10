@@ -10,9 +10,11 @@ export default function FurniturePage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [filters, setFilters] = useState({ types: [], collections: [] });
+  const [loadingMore, setLoadingMore] = useState(false);
   const [detailItem, setDetailItem] = useState(null);
   const searchTimer = useRef(null);
   const retailerScrollRef = useRef(null);
+  const PAGE_SIZE = 120;
 
   useEffect(() => {
     api.catalogRetailers().then((r) => {
@@ -24,7 +26,7 @@ export default function FurniturePage() {
   useEffect(() => {
     if (!activeRetailer) return;
     setLoading(true);
-    const params = { limit: "120" };
+    const params = { limit: String(PAGE_SIZE) };
     if (search) params.q = search;
     if (typeFilter) params.category = typeFilter;
     Promise.all([
@@ -42,6 +44,20 @@ export default function FurniturePage() {
   const handleSearch = (val) => {
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => setSearch(val), 300);
+  };
+
+  const loadMoreItems = () => {
+    if (!activeRetailer) return;
+    setLoadingMore(true);
+    const params = { limit: String(PAGE_SIZE), offset: String(items.length) };
+    if (search) params.q = search;
+    if (typeFilter) params.category = typeFilter;
+    api
+      .catalogFurniture(activeRetailer, params)
+      .then((data) => {
+        setItems((prev) => [...prev, ...data.items]);
+      })
+      .finally(() => setLoadingMore(false));
   };
 
   const getImg = (item) => item.image_url || item.image || item.thumbnail || "";
@@ -103,44 +119,61 @@ export default function FurniturePage() {
           <div className="spinner" /> Loading...
         </div>
       ) : (
-        <div className="image-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
-          {items.map((item, i) => {
-            const imgUrl = getImg(item);
-            return (
-              <div key={`${item.sku || item.name}-${i}`} className="image-card" onClick={() => setDetailItem(item)}>
-                {imgUrl ? (
-                  <img src={imgUrl} alt={item.name} loading="lazy" />
-                ) : (
-                  <div style={{
-                    width: "100%",
-                    height: 200,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--text-secondary)",
-                    fontSize: "0.75rem",
-                    background: "#f5f5f5",
-                  }}>
-                    No image
-                  </div>
-                )}
-                <div className="image-card-info">
-                  <h4>{item.name}</h4>
-                  {item.price && (
-                    <small style={{ color: "var(--accent)", fontWeight: 600 }}>
-                      ${item.price.toLocaleString()}
-                      {item.compare_at_price && item.compare_at_price > item.price && (
-                        <s style={{ color: "var(--text-secondary)", fontWeight: 400, marginLeft: 4 }}>
-                          ${item.compare_at_price.toLocaleString()}
-                        </s>
-                      )}
-                    </small>
+        <>
+          <div className="image-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
+            {items.map((item, i) => {
+              const imgUrl = getImg(item);
+              return (
+                <div key={`${item.sku || item.name}-${i}`} className="image-card" onClick={() => setDetailItem(item)}>
+                  {imgUrl ? (
+                    <img src={imgUrl} alt={item.name} loading="lazy" />
+                  ) : (
+                    <div style={{
+                      width: "100%",
+                      height: 200,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--text-secondary)",
+                      fontSize: "0.75rem",
+                      background: "#f5f5f5",
+                    }}>
+                      No image
+                    </div>
                   )}
+                  <div className="image-card-info">
+                    <h4>{item.name}</h4>
+                    {item.price && (
+                      <small style={{ color: "var(--accent)", fontWeight: 600 }}>
+                        ${item.price.toLocaleString()}
+                        {item.compare_at_price && item.compare_at_price > item.price && (
+                          <s style={{ color: "var(--text-secondary)", fontWeight: 400, marginLeft: 4 }}>
+                            ${item.compare_at_price.toLocaleString()}
+                          </s>
+                        )}
+                      </small>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          {items.length < total && (
+            <div className="load-more-container">
+              <button
+                className="btn-load-more"
+                onClick={loadMoreItems}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Loading…</>
+                ) : (
+                  `Load More (${items.length} of ${total})`
+                )}
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Furniture Detail Modal */}

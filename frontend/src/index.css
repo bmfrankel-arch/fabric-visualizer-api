@@ -1180,3 +1180,37 @@ input:focus, select:focus {
   font-size: 0.7rem;
   color: var(--text-secondary);
 }
+
+/* ─── Load More button ────────────────────────── */
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 1.25rem;
+}
+
+.btn-load-more {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-load-more:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+.btn-load-more:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

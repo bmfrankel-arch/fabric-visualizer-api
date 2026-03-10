@@ -8,6 +8,7 @@ export default function VisualizePage() {
   const [fabrics, setFabrics] = useState([]);
   const [fabricTotal, setFabricTotal] = useState(0);
   const [fabricLoading, setFabricLoading] = useState(true);
+  const [fabricLoadingMore, setFabricLoadingMore] = useState(false);
   const [selectedPattern, setSelectedPattern] = useState(null);
   const [selectedColorway, setSelectedColorway] = useState(null);
 
@@ -23,6 +24,7 @@ export default function VisualizePage() {
   const [furniture, setFurniture] = useState([]);
   const [furnitureTotal, setFurnitureTotal] = useState(0);
   const [furnitureLoading, setFurnitureLoading] = useState(true);
+  const [furnitureLoadingMore, setFurnitureLoadingMore] = useState(false);
   const [furnitureFilters, setFurnitureFilters] = useState({ types: [] });
   const [selectedFurniture, setSelectedFurniture] = useState(null);
 
@@ -48,6 +50,8 @@ export default function VisualizePage() {
   const fabricSearchTimer = useRef(null);
   const furnitureSearchTimer = useRef(null);
   const retailerScrollRef = useRef(null);
+  const FABRIC_PAGE_SIZE = 80;
+  const FURNITURE_PAGE_SIZE = 80;
 
   // Load health check + retailers on mount
   useEffect(() => {
@@ -69,7 +73,7 @@ export default function VisualizePage() {
   // Load fabrics
   useEffect(() => {
     setFabricLoading(true);
-    const params = { limit: "80" };
+    const params = { limit: String(FABRIC_PAGE_SIZE) };
     if (fabricSearch) params.q = fabricSearch;
     if (fabricJacquard) params.jacquard = fabricJacquard;
     api
@@ -86,7 +90,7 @@ export default function VisualizePage() {
   useEffect(() => {
     if (!activeRetailer || activeRetailer === "upload") return;
     setFurnitureLoading(true);
-    const params = { limit: "80" };
+    const params = { limit: String(FURNITURE_PAGE_SIZE) };
     if (furnitureSearch) params.q = furnitureSearch;
     if (furnitureType) params.category = furnitureType;
     Promise.all([
@@ -113,6 +117,33 @@ export default function VisualizePage() {
       () => setFurnitureSearch(val),
       300
     );
+  };
+
+  const loadMoreFabrics = () => {
+    setFabricLoadingMore(true);
+    const params = { limit: String(FABRIC_PAGE_SIZE), offset: String(fabrics.length) };
+    if (fabricSearch) params.q = fabricSearch;
+    if (fabricJacquard) params.jacquard = fabricJacquard;
+    api
+      .catalogFabrics(params)
+      .then((data) => {
+        setFabrics((prev) => [...prev, ...data.items]);
+      })
+      .finally(() => setFabricLoadingMore(false));
+  };
+
+  const loadMoreFurniture = () => {
+    if (!activeRetailer || activeRetailer === "upload") return;
+    setFurnitureLoadingMore(true);
+    const params = { limit: String(FURNITURE_PAGE_SIZE), offset: String(furniture.length) };
+    if (furnitureSearch) params.q = furnitureSearch;
+    if (furnitureType) params.category = furnitureType;
+    api
+      .catalogFurniture(activeRetailer, params)
+      .then((data) => {
+        setFurniture((prev) => [...prev, ...data.items]);
+      })
+      .finally(() => setFurnitureLoadingMore(false));
   };
 
   const selectPattern = (pattern) => {
@@ -530,23 +561,40 @@ export default function VisualizePage() {
               <div className="spinner" /> Loading...
             </div>
           ) : (
-            <div className="pattern-grid">
-              {fabrics.map((p) => (
-                <div
-                  key={p.slug}
-                  className="pattern-card"
-                  onClick={() => selectPattern(p)}
-                >
-                  <img src={p.thumbnail} alt={p.name} loading="lazy" />
-                  <div className="pattern-card-info">
-                    <h4>{p.name}{p.jacquard && <span className="badge-jacquard-sm">J</span>}</h4>
-                    <small>
-                      {p.images.length} color{p.images.length !== 1 ? "s" : ""}
-                    </small>
+            <>
+              <div className="pattern-grid">
+                {fabrics.map((p) => (
+                  <div
+                    key={p.slug}
+                    className="pattern-card"
+                    onClick={() => selectPattern(p)}
+                  >
+                    <img src={p.thumbnail} alt={p.name} loading="lazy" />
+                    <div className="pattern-card-info">
+                      <h4>{p.name}{p.jacquard && <span className="badge-jacquard-sm">J</span>}</h4>
+                      <small>
+                        {p.images.length} color{p.images.length !== 1 ? "s" : ""}
+                      </small>
+                    </div>
                   </div>
+                ))}
+              </div>
+              {fabrics.length < fabricTotal && (
+                <div className="load-more-container">
+                  <button
+                    className="btn-load-more"
+                    onClick={loadMoreFabrics}
+                    disabled={fabricLoadingMore}
+                  >
+                    {fabricLoadingMore ? (
+                      <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Loading…</>
+                    ) : (
+                      `Load More (${fabrics.length} of ${fabricTotal})`
+                    )}
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
 
@@ -664,52 +712,69 @@ export default function VisualizePage() {
                   <div className="spinner" /> Loading...
                 </div>
               ) : (
-                <div className="furniture-grid">
-                  {furniture.map((item, i) => {
-                    const imgUrl = getFurnitureImageUrl(item);
-                    const isSelected = selectedFurniture === item;
-                    return (
-                      <div
-                        key={`${item.sku || item.name}-${i}`}
-                        className={`furniture-card ${isSelected ? "selected" : ""}`}
-                        onClick={() => setSelectedFurniture(item)}
-                      >
-                        {imgUrl ? (
-                          <img src={imgUrl} alt={item.name} loading="lazy" />
-                        ) : (
-                          <div className="no-image">No image</div>
-                        )}
-                        {item.url && (
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="furniture-card-link"
-                            onClick={(e) => e.stopPropagation()}
-                            title="View on retailer site"
-                          >
-                            &#8599;
-                          </a>
-                        )}
-                        <div className="furniture-card-info">
-                          <h4>{item.name}</h4>
-                          {item.price && (
-                            <span className="price">
-                              ${item.price.toLocaleString()}
-                              {item.compare_at_price &&
-                                item.compare_at_price > item.price && (
-                                  <s>${item.compare_at_price.toLocaleString()}</s>
-                                )}
-                            </span>
+                <>
+                  <div className="furniture-grid">
+                    {furniture.map((item, i) => {
+                      const imgUrl = getFurnitureImageUrl(item);
+                      const isSelected = selectedFurniture === item;
+                      return (
+                        <div
+                          key={`${item.sku || item.name}-${i}`}
+                          className={`furniture-card ${isSelected ? "selected" : ""}`}
+                          onClick={() => setSelectedFurniture(item)}
+                        >
+                          {imgUrl ? (
+                            <img src={imgUrl} alt={item.name} loading="lazy" />
+                          ) : (
+                            <div className="no-image">No image</div>
                           )}
-                          {item.collection && (
-                            <small className="collection">{item.collection}</small>
+                          {item.url && (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="furniture-card-link"
+                              onClick={(e) => e.stopPropagation()}
+                              title="View on retailer site"
+                            >
+                              &#8599;
+                            </a>
                           )}
+                          <div className="furniture-card-info">
+                            <h4>{item.name}</h4>
+                            {item.price && (
+                              <span className="price">
+                                ${item.price.toLocaleString()}
+                                {item.compare_at_price &&
+                                  item.compare_at_price > item.price && (
+                                    <s>${item.compare_at_price.toLocaleString()}</s>
+                                  )}
+                              </span>
+                            )}
+                            {item.collection && (
+                              <small className="collection">{item.collection}</small>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                  {furniture.length < furnitureTotal && (
+                    <div className="load-more-container">
+                      <button
+                        className="btn-load-more"
+                        onClick={loadMoreFurniture}
+                        disabled={furnitureLoadingMore}
+                      >
+                        {furnitureLoadingMore ? (
+                          <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Loading…</>
+                        ) : (
+                          `Load More (${furniture.length} of ${furnitureTotal})`
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
