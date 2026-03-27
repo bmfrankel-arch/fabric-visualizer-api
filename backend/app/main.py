@@ -1,13 +1,52 @@
+import base64
+import secrets
 from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 from .config import settings
 from .database import init_db
 from .routers import fabrics, furniture, scraper, visualize, catalog
 
 app = FastAPI(title=settings.app_name)
+
+
+# ── HTTP Basic Auth middleware ────────────────────────────────────────────────
+# Exempt /api/health so Railway's healthcheck still works without credentials.
+
+AUTH_EXEMPT_PATHS = {"/api/health"}
+
+
+class BasicAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in AUTH_EXEMPT_PATHS:
+            return await call_next(request)
+
+        auth = request.headers.get("Authorization")
+        if auth and auth.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(auth[6:]).decode("utf-8")
+                username, _, password = decoded.partition(":")
+                user_ok = secrets.compare_digest(username, settings.basic_auth_username)
+                pass_ok = secrets.compare_digest(password, settings.basic_auth_password)
+                if user_ok and pass_ok:
+                    return await call_next(request)
+            except Exception:
+                pass
+
+        return Response(
+            content="Unauthorized",
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="Fabric Visualizer"'},
+        )
+
+
+app.add_middleware(BasicAuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

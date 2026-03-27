@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     database_path: Path = Path(__file__).parent.parent / "data.db"
     max_upload_size: int = 20 * 1024 * 1024  # 20MB
 
+    # HTTP Basic Auth (set FV_BASIC_AUTH_USERNAME / FV_BASIC_AUTH_PASSWORD env vars)
+    basic_auth_username: str = "myusername"
+    basic_auth_password: str = "mypassword"
+
     # AI API settings (optional - enables AI-powered fabric application)
     replicate_api_token: str = ""
     stability_api_key: str = ""
