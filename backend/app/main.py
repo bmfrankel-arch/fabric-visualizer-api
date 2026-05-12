@@ -118,12 +118,18 @@ def startup():
 
 @app.get("/api/health")
 def health():
+    import os as _os
     raw = settings.brand_api_keys or ""
     parse_error = None
     try:
         json.loads(raw)
     except Exception as e:
         parse_error = str(e)
+    # List FV_-prefixed env vars by name only (values redacted) so we can
+    # see what Railway is actually injecting into the container.
+    fv_env_names = sorted(k for k in _os.environ if k.startswith("FV_"))
+    # Also check the raw env var directly, bypassing pydantic
+    raw_env = _os.environ.get("FV_BRAND_API_KEYS", "<missing>")
     return {
         "status": "ok",
         "ai_enabled": bool(settings.replicate_api_token),
@@ -133,6 +139,9 @@ def health():
         "brand_keys_raw_len": len(raw),
         "brand_keys_raw_first8": raw[:8],
         "brand_keys_parse_error": parse_error,
+        "fv_env_var_names": fv_env_names,
+        "raw_env_first8": raw_env[:8] if raw_env != "<missing>" else "<missing>",
+        "raw_env_len": len(raw_env) if raw_env != "<missing>" else 0,
     }
 
 
