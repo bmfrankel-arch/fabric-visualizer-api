@@ -122,6 +122,8 @@ def health():
         "status": "ok",
         "ai_enabled": bool(settings.replicate_api_token),
         "openai_enabled": bool(settings.openai_api_key),
+        "brand_keys_loaded": len(BRAND_API_KEYS),
+        "brand_names": list(BRAND_API_KEYS.keys()),
     }
 
 
