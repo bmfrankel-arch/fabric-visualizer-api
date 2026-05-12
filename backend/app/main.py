@@ -118,12 +118,21 @@ def startup():
 
 @app.get("/api/health")
 def health():
+    raw = settings.brand_api_keys or ""
+    parse_error = None
+    try:
+        json.loads(raw)
+    except Exception as e:
+        parse_error = str(e)
     return {
         "status": "ok",
         "ai_enabled": bool(settings.replicate_api_token),
         "openai_enabled": bool(settings.openai_api_key),
         "brand_keys_loaded": len(BRAND_API_KEYS),
         "brand_names": list(BRAND_API_KEYS.keys()),
+        "brand_keys_raw_len": len(raw),
+        "brand_keys_raw_first8": raw[:8],
+        "brand_keys_parse_error": parse_error,
     }
 
 
