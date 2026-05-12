@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../api";
+import { api, BRAND } from "../api";
+
+const BRAND_MODE = Boolean(BRAND.key);
 
 export default function VisualizePage() {
   // Fabric state
@@ -18,7 +20,7 @@ export default function VisualizePage() {
 
   // Furniture state
   const [retailers, setRetailers] = useState([]);
-  const [activeRetailer, setActiveRetailer] = useState(""); // "upload" = custom upload tab
+  const [activeRetailer, setActiveRetailer] = useState(BRAND_MODE ? BRAND.key : ""); // "upload" = custom upload tab
   const [furnitureSearch, setFurnitureSearch] = useState("");
   const [furnitureType, setFurnitureType] = useState("");
   const [furniture, setFurniture] = useState([]);
@@ -61,7 +63,9 @@ export default function VisualizePage() {
 
     api.catalogRetailers().then((r) => {
       setRetailers(r);
-      if (r.length > 0) setActiveRetailer(r[0].key);
+      // In brand mode, activeRetailer is already pinned to BRAND.key.
+      // Otherwise, default to the first retailer.
+      if (!BRAND_MODE && r.length > 0) setActiveRetailer(r[0].key);
     });
   }, []);
 
@@ -607,36 +611,38 @@ export default function VisualizePage() {
             )}
           </div>
 
-          {/* Retailer tabs + Upload tab */}
-          <div className="retailer-tabs-wrapper">
-            <button className="retailer-tabs-arrow" onClick={() => retailerScrollRef.current?.scrollBy({ left: -200, behavior: "smooth" })} aria-label="Scroll left">&#8249;</button>
-            <div className="retailer-tabs" ref={retailerScrollRef}>
-              {retailers.map((r) => (
+          {/* Retailer tabs + Upload tab — hidden in brand mode (locked to one retailer) */}
+          {!BRAND_MODE && (
+            <div className="retailer-tabs-wrapper">
+              <button className="retailer-tabs-arrow" onClick={() => retailerScrollRef.current?.scrollBy({ left: -200, behavior: "smooth" })} aria-label="Scroll left">&#8249;</button>
+              <div className="retailer-tabs" ref={retailerScrollRef}>
+                {retailers.map((r) => (
+                  <button
+                    key={r.key}
+                    className={`retailer-tab ${activeRetailer === r.key ? "active" : ""}`}
+                    onClick={() => {
+                      setActiveRetailer(r.key);
+                      setFurnitureType("");
+                      setFurnitureSearch("");
+                      setSelectedFurniture(null);
+                    }}
+                  >
+                    {r.name}
+                  </button>
+                ))}
                 <button
-                  key={r.key}
-                  className={`retailer-tab ${activeRetailer === r.key ? "active" : ""}`}
+                  className={`retailer-tab retailer-tab-upload ${activeRetailer === "upload" ? "active" : ""}`}
                   onClick={() => {
-                    setActiveRetailer(r.key);
-                    setFurnitureType("");
-                    setFurnitureSearch("");
+                    setActiveRetailer("upload");
                     setSelectedFurniture(null);
                   }}
                 >
-                  {r.name}
+                  ↑ Upload Frame
                 </button>
-              ))}
-              <button
-                className={`retailer-tab retailer-tab-upload ${activeRetailer === "upload" ? "active" : ""}`}
-                onClick={() => {
-                  setActiveRetailer("upload");
-                  setSelectedFurniture(null);
-                }}
-              >
-                ↑ Upload Frame
-              </button>
+              </div>
+              <button className="retailer-tabs-arrow" onClick={() => retailerScrollRef.current?.scrollBy({ left: 200, behavior: "smooth" })} aria-label="Scroll right">&#8250;</button>
             </div>
-            <button className="retailer-tabs-arrow" onClick={() => retailerScrollRef.current?.scrollBy({ left: 200, behavior: "smooth" })} aria-label="Scroll right">&#8250;</button>
-          </div>
+          )}
 
           {/* Upload Frame panel */}
           {activeRetailer === "upload" ? (

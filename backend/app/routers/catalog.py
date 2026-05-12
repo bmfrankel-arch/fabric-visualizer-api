@@ -11,10 +11,21 @@ import json
 import uuid
 import shutil
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File
 from ..config import settings
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
+
+
+def _enforce_brand_scope(request: Request, retailer: str):
+    """If the caller authenticated via a brand API key, only let them query
+    their own brand's retailer. Internal (basic-auth) callers see everything."""
+    brand = getattr(request.state, "brand", None)
+    if brand and brand != retailer:
+        raise HTTPException(
+            status_code=403,
+            detail=f"API key is scoped to '{brand}', cannot query '{retailer}'",
+        )
 
 DATA_DIR = Path(__file__).parent.parent
 
@@ -213,16 +224,21 @@ def _load_furniture(retailer_key: str):
 
 
 @router.get("/retailers")
-def list_retailers():
-    """Return list of available furniture retailers."""
-    return [
-        {"key": k, "name": v["name"], "logo": v["logo"]}
-        for k, v in RETAILERS.items()
-    ]
+def list_retailers(request: Request):
+    """Return list of available furniture retailers.
+
+    For brand-scoped (X-API-Key) callers, only their own brand is returned.
+    """
+    brand = getattr(request.state, "brand", None)
+    items = RETAILERS.items()
+    if brand:
+        items = [(brand, RETAILERS[brand])] if brand in RETAILERS else []
+    return [{"key": k, "name": v["name"], "logo": v["logo"]} for k, v in items]
 
 
 @router.get("/furniture/{retailer}")
 def list_furniture(
+    request: Request,
     retailer: str,
     q: str = "",
     category: str = "",
@@ -230,6 +246,7 @@ def list_furniture(
     limit: int = Query(60, le=200),
     offset: int = 0,
 ):
+    _enforce_brand_scope(request, retailer)
     items = _load_furniture(retailer)
     if items is None:
         raise HTTPException(status_code=404, detail=f"Retailer '{retailer}' not found")
@@ -257,7 +274,8 @@ def list_furniture(
 
 
 @router.get("/furniture/{retailer}/filters")
-def furniture_filters(retailer: str):
+def furniture_filters(request: Request, retailer: str):
+    _enforce_brand_scope(request, retailer)
     items = _load_furniture(retailer)
     if items is None:
         raise HTTPException(status_code=404, detail=f"Retailer '{retailer}' not found")

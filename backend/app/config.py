@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     basic_auth_username: str = "myusername"
     basic_auth_password: str = "mypassword"
 
+    # Per-brand API keys for white-label frontend deploys.
+    # Set FV_BRAND_API_KEYS as a JSON string, e.g.:
+    #   {"bernhardt": "key_abc123", "crlaine": "key_xyz789"}
+    # Each key gates an X-API-Key request header. The brand name is also
+    # the only retailer the frontend is allowed to query.
+    brand_api_keys: str = "{}"
+
     # AI API settings (optional - enables AI-powered fabric application)
     replicate_api_token: str = ""
     stability_api_key: str = ""

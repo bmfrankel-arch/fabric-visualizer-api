@@ -1,7 +1,19 @@
 const API = import.meta.env.VITE_BACKEND_URL || "";
+const API_KEY = import.meta.env.VITE_API_KEY || "";
+
+// Brand mode: when these are set at build time, the UI locks to a single
+// retailer and authenticates with X-API-Key against the shared backend.
+export const BRAND = {
+  key: import.meta.env.VITE_BRAND_KEY || "",
+  name: import.meta.env.VITE_BRAND_NAME || "",
+  logoUrl: import.meta.env.VITE_BRAND_LOGO_URL || "",
+  accent: import.meta.env.VITE_BRAND_ACCENT || "",
+};
 
 async function request(path, options = {}) {
-  const res = await fetch(`${API}${path}`, options);
+  const headers = { ...(options.headers || {}) };
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
+  const res = await fetch(`${API}${path}`, { ...options, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "Request failed");

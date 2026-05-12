@@ -1,4 +1,5 @@
 import base64
+import json
 import secrets
 from pathlib import Path
 
@@ -16,28 +17,61 @@ from .routers import fabrics, furniture, scraper, visualize, catalog
 app = FastAPI(title=settings.app_name)
 
 
-# ── HTTP Basic Auth middleware ────────────────────────────────────────────────
+# ── Auth middleware ──────────────────────────────────────────────────────────
 # Exempt /api/health so Railway's healthcheck still works without credentials.
+# Two accepted forms:
+#   1. HTTP Basic Auth — for the internal multi-brand frontend
+#   2. X-API-Key header — for per-brand white-label frontends
+# If neither is present/valid, return 401.
 
 AUTH_EXEMPT_PATHS = {"/api/health"}
 
+try:
+    BRAND_API_KEYS: dict[str, str] = json.loads(settings.brand_api_keys or "{}")
+except Exception:
+    BRAND_API_KEYS = {}
+# Reverse lookup: api_key -> brand_name. Used to tag requests with their brand.
+_KEY_TO_BRAND = {v: k for k, v in BRAND_API_KEYS.items() if v}
 
-class BasicAuthMiddleware(BaseHTTPMiddleware):
+
+def _check_basic_auth(auth_header: str) -> bool:
+    if not auth_header or not auth_header.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+        username, _, password = decoded.partition(":")
+        user_ok = secrets.compare_digest(username, settings.basic_auth_username)
+        pass_ok = secrets.compare_digest(password, settings.basic_auth_password)
+        return user_ok and pass_ok
+    except Exception:
+        return False
+
+
+def _check_api_key(api_key: str) -> str | None:
+    """Return the brand name if the key is valid, else None."""
+    if not api_key:
+        return None
+    for key, brand in _KEY_TO_BRAND.items():
+        if secrets.compare_digest(api_key, key):
+            return brand
+    return None
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path in AUTH_EXEMPT_PATHS:
             return await call_next(request)
 
-        auth = request.headers.get("Authorization")
-        if auth and auth.startswith("Basic "):
-            try:
-                decoded = base64.b64decode(auth[6:]).decode("utf-8")
-                username, _, password = decoded.partition(":")
-                user_ok = secrets.compare_digest(username, settings.basic_auth_username)
-                pass_ok = secrets.compare_digest(password, settings.basic_auth_password)
-                if user_ok and pass_ok:
-                    return await call_next(request)
-            except Exception:
-                pass
+        # 1) Try X-API-Key
+        brand = _check_api_key(request.headers.get("X-API-Key", ""))
+        if brand:
+            request.state.brand = brand
+            return await call_next(request)
+
+        # 2) Fall back to Basic Auth
+        if _check_basic_auth(request.headers.get("Authorization", "")):
+            request.state.brand = None
+            return await call_next(request)
 
         return Response(
             content="Unauthorized",
@@ -46,7 +80,7 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         )
 
 
-app.add_middleware(BasicAuthMiddleware)
+app.add_middleware(AuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

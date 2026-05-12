@@ -1,0 +1,15 @@
+# Netlify config for per-brand white-label deploys.
+# Each brand gets its own Netlify site linked to this repo (or a fork).
+# Set VITE_BRAND_KEY, VITE_BRAND_NAME, VITE_API_KEY (and optionally
+# VITE_BRAND_LOGO_URL, VITE_BRAND_ACCENT) in the site's Environment settings.
+
+[build]
+  base = "frontend"
+  command = "npm install && npm run build"
+  publish = "frontend/dist"
+
+# SPA: any unknown path serves the React app
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
