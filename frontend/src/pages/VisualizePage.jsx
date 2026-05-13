@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { api, BRAND } from "../api";
+import { track } from "../analytics";
 
 const BRAND_MODE = Boolean(BRAND.key);
+const ANALYTICS_BRAND = BRAND.key || null;
 
 export default function VisualizePage() {
   // Fabric state
@@ -181,6 +183,13 @@ export default function VisualizePage() {
     } else {
       setSelectedColorway(cw);
     }
+    track("fabric_selected", {
+      brand: ANALYTICS_BRAND,
+      slot: fabricPanelMode,
+      pattern: pattern.name,
+      slug: pattern.slug,
+      color: cw.name,
+    });
   };
 
   const getColorName = (filename) => {
@@ -239,21 +248,47 @@ export default function VisualizePage() {
     setRefinePrompt("");
     setRefineError("");
     const mode = aiMode && openaiEnabled ? "ai" : "cv";
+    const fabricLabel = `${selectedColorway.patternName} - ${selectedColorway.name}`;
+    const pillowLabel = selectedPillowColorway
+      ? `${selectedPillowColorway.patternName} - ${selectedPillowColorway.name}`
+      : "";
+    track("visualize_started", {
+      brand: ANALYTICS_BRAND,
+      mode,
+      fabric: fabricLabel,
+      furniture: selectedFurniture.name,
+      pillow: pillowLabel,
+      custom_frame: !!selectedFurniture._custom,
+    });
+    const startedAt = Date.now();
     try {
       const res = await api.visualizeFromUrls(
         selectedColorway.url,
         furnitureImg,
-        `${selectedColorway.patternName} - ${selectedColorway.name}`,
+        fabricLabel,
         selectedFurniture.name,
         mode,
         selectedPillowColorway?.url || "",
-        selectedPillowColorway
-          ? `${selectedPillowColorway.patternName} - ${selectedPillowColorway.name}`
-          : ""
+        pillowLabel
       );
       setResult(res);
+      track("visualize_completed", {
+        brand: ANALYTICS_BRAND,
+        mode,
+        fabric: fabricLabel,
+        furniture: selectedFurniture.name,
+        pillow: pillowLabel,
+        duration_ms: Date.now() - startedAt,
+      });
     } catch (e) {
       setError(e.message);
+      track("visualize_failed", {
+        brand: ANALYTICS_BRAND,
+        mode,
+        fabric: fabricLabel,
+        furniture: selectedFurniture.name,
+        error: e.message,
+      });
     } finally {
       setVisualizing(false);
     }
@@ -265,6 +300,11 @@ export default function VisualizePage() {
     if (!result || !refinePrompt.trim()) return;
     setRefining(true);
     setRefineError("");
+    track("refine_started", {
+      brand: ANALYTICS_BRAND,
+      prompt_length: refinePrompt.trim().length,
+    });
+    const startedAt = Date.now();
     try {
       const res = await api.refineVisualization(result.result_filename, refinePrompt);
       setResult((prev) => ({
@@ -273,9 +313,17 @@ export default function VisualizePage() {
         result_url: res.result_url,
         mode: "ai",
       }));
+      track("refine_completed", {
+        brand: ANALYTICS_BRAND,
+        duration_ms: Date.now() - startedAt,
+      });
       setRefinePrompt("");
     } catch (e) {
       setRefineError(e.message);
+      track("refine_failed", {
+        brand: ANALYTICS_BRAND,
+        error: e.message,
+      });
     } finally {
       setRefining(false);
     }
@@ -727,7 +775,15 @@ export default function VisualizePage() {
                         <div
                           key={`${item.sku || item.name}-${i}`}
                           className={`furniture-card ${isSelected ? "selected" : ""}`}
-                          onClick={() => setSelectedFurniture(item)}
+                          onClick={() => {
+                            setSelectedFurniture(item);
+                            track("furniture_selected", {
+                              brand: ANALYTICS_BRAND,
+                              retailer: activeRetailer,
+                              name: item.name,
+                              sku: item.sku || "",
+                            });
+                          }}
                         >
                           {imgUrl ? (
                             <img src={imgUrl} alt={item.name} loading="lazy" />

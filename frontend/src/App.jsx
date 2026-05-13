@@ -1,8 +1,19 @@
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import VisualizePage from "./pages/VisualizePage";
 import FabricsPage from "./pages/FabricsPage";
 import FurniturePage from "./pages/FurniturePage";
+import AdminUsagePage from "./pages/AdminUsagePage";
 import { BRAND } from "./api";
+import { track } from "./analytics";
+
+function PageViewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    track("page_view", { brand: BRAND.key || null, path: location.pathname });
+  }, [location.pathname]);
+  return null;
+}
 
 function App() {
   const isBrandMode = Boolean(BRAND.key);
@@ -10,6 +21,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <PageViewTracker />
       <div className="app" style={rootStyle}>
         <nav className="sidebar">
           <div className="sidebar-logo">
@@ -35,6 +47,7 @@ function App() {
             <Route path="/" element={<VisualizePage />} />
             {!isBrandMode && <Route path="/fabrics" element={<FabricsPage />} />}
             {!isBrandMode && <Route path="/furniture" element={<FurniturePage />} />}
+            {!isBrandMode && <Route path="/admin/usage" element={<AdminUsagePage />} />}
           </Routes>
         </main>
       </div>

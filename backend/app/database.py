@@ -52,6 +52,19 @@ def init_db():
             name_selector TEXT DEFAULT '',
             enabled INTEGER DEFAULT 1
         );
+
+        CREATE TABLE IF NOT EXISTS analytics_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts INTEGER NOT NULL,
+            event TEXT NOT NULL,
+            brand TEXT DEFAULT '',
+            session_id TEXT DEFAULT '',
+            payload TEXT DEFAULT '',
+            user_agent TEXT DEFAULT '',
+            ip TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_analytics_brand_ts ON analytics_events(brand, ts);
+        CREATE INDEX IF NOT EXISTS idx_analytics_event ON analytics_events(event);
     """)
     db.commit()
     db.close()

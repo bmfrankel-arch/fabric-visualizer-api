@@ -12,7 +12,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from .config import settings
 from .database import init_db
-from .routers import fabrics, furniture, scraper, visualize, catalog
+from .routers import fabrics, furniture, scraper, visualize, catalog, analytics
 
 app = FastAPI(title=settings.app_name)
 
@@ -99,6 +99,7 @@ app.include_router(furniture.router)
 app.include_router(scraper.router)
 app.include_router(visualize.router)
 app.include_router(catalog.router)
+app.include_router(analytics.router)
 
 @app.on_event("startup")
 def startup():
