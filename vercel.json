@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd frontend && npm install --no-audit --no-fund && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "echo 'using buildCommand'",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
