@@ -303,16 +303,16 @@ async def apply_fabric_openai(
     AI fabric visualization — direct swatch approach (ChatGPT-style).
 
     Simplified pipeline that sends the original fabric swatch directly to
-    gpt-image-1 alongside the furniture photo, using simple conversational
+    gpt-image-2 alongside the furniture photo, using simple conversational
     prompts.  This mirrors the approach that produces excellent results in
     ChatGPT's native interface.
 
     Pass 1 — REUPHOLSTER (always):
-        gpt-image-1 receives the furniture photo + original fabric swatch
+        gpt-image-2 receives the furniture photo + original fabric swatch
         and reupholsters all fabric surfaces.
 
     Pass 2 — ACCENT PILLOWS (only when pillow_fabric_path is given):
-        gpt-image-1 adds/replaces accent pillows with a separate fabric.
+        gpt-image-2 adds/replaces accent pillows with a separate fabric.
 
     Falls back to plain CV pipeline if OpenAI key is absent or call fails.
     Requires FV_OPENAI_API_KEY environment variable.
@@ -372,7 +372,7 @@ async def apply_fabric_openai(
         try:
             with open(furn_tmp.name, "rb") as ff, open(fabric_tmp.name, "rb") as sf:
                 r = await client.images.edit(
-                    model="gpt-image-1",
+                    model="gpt-image-2",
                     image=[ff, sf],
                     prompt=body_prompt,
                     quality="high",
@@ -417,7 +417,7 @@ async def apply_fabric_openai(
         try:
             with open(pass1_tmp.name, "rb") as p1_f, open(pillow_tmp.name, "rb") as sw_f:
                 response2 = await client.images.edit(
-                    model="gpt-image-1",
+                    model="gpt-image-2",
                     image=[p1_f, sw_f],
                     prompt=pillow_prompt,
                     quality="high",
@@ -442,7 +442,7 @@ async def apply_fabric_openai(
 
 async def refine_with_openai(result_filename: str, user_prompt: str) -> str:
     """
-    Refine an existing visualization using OpenAI gpt-image-1.
+    Refine an existing visualization using OpenAI gpt-image-2.
 
     Loads the current result image and sends it to the model with the user's
     custom instruction (e.g. "make the fabric darker", "clean up the edges").
@@ -484,7 +484,7 @@ async def refine_with_openai(result_filename: str, user_prompt: str) -> str:
     try:
         with open(tmp.name, "rb") as f:
             response = await client.images.edit(
-                model="gpt-image-1",
+                model="gpt-image-2",
                 image=[f],
                 prompt=prompt,
             )

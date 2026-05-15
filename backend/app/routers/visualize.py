@@ -25,7 +25,7 @@ class CatalogVisualizeRequest(BaseModel):
     furniture_url: str
     fabric_name: str = ""
     furniture_name: str = ""
-    mode: str = "cv"  # "cv" = local pipeline, "ai" = OpenAI gpt-image-1
+    mode: str = "cv"  # "cv" = local pipeline, "ai" = OpenAI gpt-image-2
     pillow_fabric_url: str = ""   # Optional second fabric for throw pillows (AI only)
     pillow_fabric_name: str = ""  # Display name for the pillow fabric
 

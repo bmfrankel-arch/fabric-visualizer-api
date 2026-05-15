@@ -98,7 +98,7 @@ export const api = {
     request(`/api/catalog/furniture/${retailer}/filters`),
 
   // Visualize from URLs
-  // mode: "cv" (local pipeline) | "ai" (OpenAI gpt-image-1)
+  // mode: "cv" (local pipeline) | "ai" (OpenAI gpt-image-2)
   // pillowFabricUrl/pillowFabricName: optional second fabric applied to throw pillows (AI mode only)
   visualizeFromUrls: (fabricUrl, furnitureUrl, fabricName = "", furnitureName = "", mode = "cv", pillowFabricUrl = "", pillowFabricName = "") =>
     request("/api/visualize/from-urls", {
