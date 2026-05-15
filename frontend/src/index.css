@@ -1214,3 +1214,144 @@ input:focus, select:focus {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ─── Mobile / responsive ──────────────────────── */
+
+@media (max-width: 768px) {
+  /* Sidebar becomes a sticky horizontal top bar */
+  .app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-direction: row;
+    align-items: center;
+    padding: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-logo {
+    padding: 0.6rem 0.9rem;
+    border-bottom: none;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    line-height: 1.2;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: row;
+    padding: 0;
+    flex: 1;
+    overflow-x: auto;
+  }
+
+  .sidebar-nav a {
+    padding: 0.55rem 0.7rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  /* Main content takes the full width */
+  .main {
+    margin-left: 0;
+    padding: 1rem;
+    max-width: 100%;
+  }
+
+  .page-header h1 {
+    font-size: 1.25rem;
+  }
+
+  /* Stack the two-panel layouts into one column */
+  .visualizer-layout,
+  .catalog-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Selection bar: each slot full-width, stacked */
+  .selection-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .selection-slot {
+    flex: none;
+    width: 100%;
+  }
+
+  .btn-visualize {
+    width: 100%;
+  }
+
+  /* Shorter scroll panels so stacked catalogs are both reachable */
+  .pattern-grid,
+  .furniture-grid {
+    max-height: 52vh;
+  }
+
+  /* Toolbars wrap instead of overflowing */
+  .catalog-toolbar {
+    flex-wrap: wrap;
+  }
+
+  /* Smaller default image-grid tiles */
+  .image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  /* Tighter result + modal padding */
+  .result-container {
+    padding: 1rem;
+  }
+  .furniture-detail-modal {
+    padding: 0.75rem;
+  }
+
+  /* Refine row: stack input above button */
+  .refine-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .refine-btn {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 430px) {
+  /* Phone: tighter tiles so two columns still fit comfortably */
+  .pattern-grid {
+    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+  }
+  .furniture-grid {
+    grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+  }
+  .colorway-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  }
+  .image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  }
+
+  .sidebar-logo {
+    font-size: 0.82rem;
+    padding: 0.5rem 0.7rem;
+  }
+  .sidebar-nav a {
+    padding: 0.5rem 0.55rem;
+    font-size: 0.75rem;
+  }
+  .main {
+    padding: 0.75rem;
+  }
+}
