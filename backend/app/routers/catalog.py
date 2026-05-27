@@ -31,7 +31,7 @@ DATA_DIR = Path(__file__).parent.parent
 
 # ── Dorell Fabrics ──────────────────────────────────────────────
 
-DORELL_IMAGE_BASE = "https://dorellfabrics-patternlibrary.netlify.app/images"
+DORELL_IMAGE_BASE = "https://dorell-fabrics-cdn.netlify.app/images"
 
 _fabrics_cache = None
 
