@@ -97,11 +97,25 @@ export const api = {
   catalogFurnitureFilters: (retailer) =>
     request(`/api/catalog/furniture/${retailer}/filters`),
 
+  // Poll an async AI job (visualize/refine) until it finishes.
+  // The server runs slow OpenAI work in the background and returns a job_id;
+  // we poll /status until it's done rather than holding one long request open.
+  pollJob: async (jobId, { interval = 3000, timeout = 360000 } = {}) => {
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, interval));
+      const job = await request(`/api/visualize/status/${jobId}`);
+      if (job.status === "done") return job;
+      if (job.status === "error") throw new Error(job.error || "AI job failed");
+    }
+    throw new Error("Timed out waiting for the AI result.");
+  },
+
   // Visualize from URLs
-  // mode: "cv" (local pipeline) | "ai" (OpenAI gpt-image-2)
+  // mode: "cv" (local pipeline, synchronous) | "ai" (OpenAI gpt-image-2, async job)
   // pillowFabricUrl/pillowFabricName: optional second fabric applied to throw pillows (AI mode only)
-  visualizeFromUrls: (fabricUrl, furnitureUrl, fabricName = "", furnitureName = "", mode = "cv", pillowFabricUrl = "", pillowFabricName = "") =>
-    request("/api/visualize/from-urls", {
+  visualizeFromUrls: async (fabricUrl, furnitureUrl, fabricName = "", furnitureName = "", mode = "cv", pillowFabricUrl = "", pillowFabricName = "") => {
+    const resp = await request("/api/visualize/from-urls", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -113,15 +127,20 @@ export const api = {
         pillow_fabric_url: pillowFabricUrl,
         pillow_fabric_name: pillowFabricName,
       }),
-    }),
+    });
+    // AI mode returns a job to poll; CV mode returns the result inline.
+    return resp && resp.job_id ? api.pollJob(resp.job_id) : resp;
+  },
 
-  // Refine an existing result with a custom prompt (AI only)
-  refineVisualization: (resultFilename, prompt) =>
-    request("/api/visualize/refine", {
+  // Refine an existing result with a custom prompt (AI only — async job)
+  refineVisualization: async (resultFilename, prompt) => {
+    const resp = await request("/api/visualize/refine", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ result_filename: resultFilename, prompt }),
-    }),
+    });
+    return resp && resp.job_id ? api.pollJob(resp.job_id) : resp;
+  },
 
   // Upload a custom furniture frame photo
   uploadCustomFurniture: (file) => {

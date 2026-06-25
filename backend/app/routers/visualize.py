@@ -1,6 +1,8 @@
 import asyncio
 import hashlib
 import shutil
+import time
+import uuid
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -19,6 +21,47 @@ from ..services.visualizer import (
 router = APIRouter(prefix="/api/visualize", tags=["visualize"])
 
 
+# ── Async job store ──────────────────────────────────────────────────────────
+# OpenAI image generation takes ~90s–3min, which is longer than the edge proxy
+# will hold an idle HTTP connection open — so a synchronous request gets dropped
+# before the response is sent (the browser spins forever even though the work
+# finishes). Instead we kick the work off in a background task, return a job_id
+# immediately, and let the frontend poll /status/{job_id}. In-memory is fine: a
+# single instance, and jobs are short-lived/disposable.
+_JOBS: dict[str, dict] = {}
+_JOB_TTL = 1800  # seconds — drop finished jobs after 30 min
+
+# Hold strong refs to in-flight tasks; asyncio only keeps weak refs, so without
+# this a background task can be garbage-collected mid-run.
+_TASKS: set = set()
+
+
+def _spawn(coro) -> None:
+    """Run a coroutine in the background, keeping a strong reference to it."""
+    task = asyncio.create_task(coro)
+    _TASKS.add(task)
+    task.add_done_callback(_TASKS.discard)
+
+
+def _new_job() -> str:
+    """Create a pending job, opportunistically reaping expired ones."""
+    cutoff = time.time() - _JOB_TTL
+    for k in [k for k, v in _JOBS.items() if v.get("created", 0) < cutoff]:
+        _JOBS.pop(k, None)
+    job_id = uuid.uuid4().hex
+    _JOBS[job_id] = {"status": "processing", "created": time.time()}
+    return job_id
+
+
+@router.get("/status/{job_id}")
+def visualize_status(job_id: str):
+    """Poll the status of an async visualization/refine job."""
+    job = _JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or expired")
+    return job
+
+
 class CatalogVisualizeRequest(BaseModel):
     """Visualize using external image URLs (from catalog data)."""
     fabric_url: str
@@ -30,46 +73,20 @@ class CatalogVisualizeRequest(BaseModel):
     pillow_fabric_name: str = ""  # Display name for the pillow fabric
 
 
-@router.post("/from-urls")
-async def visualize_from_urls(req: CatalogVisualizeRequest):
-    """Visualize using external image URLs from the catalog."""
-    is_cv = not (req.mode == "ai" and settings.openai_api_key)
-
-    # ── Result cache (CV mode only) — instant return for exact same combo ──
-    combo_hash = ""
-    if is_cv:
-        combo_hash = hashlib.sha256(
-            f"{req.fabric_url}|{req.furniture_url}".encode()
-        ).hexdigest()[:16]
-        cached_result = RESULTS_DIR / f"viz_cache_{combo_hash}.jpg"
-        if cached_result.exists():
-            return {
-                "result_filename": cached_result.name,
-                "result_url": f"/uploads/results/{cached_result.name}",
-                "fabric_name": req.fabric_name,
-                "furniture_name": req.furniture_name,
-                "mode": "cv",
-                "pillow_fabric_name": "",
-            }
-
-    # ── Download images in parallel ──
+async def _run_ai_visualize(job_id: str, req: "CatalogVisualizeRequest"):
+    """Background worker: download images + run the (slow) OpenAI pipeline."""
     try:
         fabric_path, furniture_path = await asyncio.gather(
             download_image(req.fabric_url),
             download_image(req.furniture_url),
         )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to download images: {e}")
-
-    # Download pillow fabric if provided (AI mode only)
-    pillow_path = None
-    if req.pillow_fabric_url and not is_cv:
-        try:
-            pillow_path = await download_image(req.pillow_fabric_url)
-        except Exception:
-            pillow_path = None  # Non-fatal — proceed without pillow fabric
-
-    if not is_cv:
+        # Optional pillow fabric — non-fatal if it fails to download.
+        pillow_path = None
+        if req.pillow_fabric_url:
+            try:
+                pillow_path = await download_image(req.pillow_fabric_url)
+            except Exception:
+                pillow_path = None
         result_filename = await apply_fabric_openai(
             fabric_path,
             furniture_path,
@@ -78,24 +95,72 @@ async def visualize_from_urls(req: CatalogVisualizeRequest):
             main_fabric_name=req.fabric_name,
             fabric_url_hint=req.fabric_url,
         )
-        used_mode = "ai"
-    else:
-        result_filename = apply_fabric_to_furniture(fabric_path, furniture_path)
-        used_mode = "cv"
-        # Save a copy under the combo hash for future cache hits
-        if combo_hash:
-            cached_result = RESULTS_DIR / f"viz_cache_{combo_hash}.jpg"
-            try:
-                shutil.copy2(RESULTS_DIR / result_filename, cached_result)
-            except Exception:
-                pass  # Non-fatal
+        _JOBS[job_id].update(
+            status="done",
+            result_filename=result_filename,
+            result_url=f"/uploads/results/{result_filename}",
+            fabric_name=req.fabric_name,
+            furniture_name=req.furniture_name,
+            mode="ai",
+            pillow_fabric_name=req.pillow_fabric_name,
+        )
+    except Exception as e:
+        _JOBS[job_id].update(status="error", error=f"Visualization failed: {e}")
+
+
+@router.post("/from-urls")
+async def visualize_from_urls(req: CatalogVisualizeRequest):
+    """Visualize using external image URLs from the catalog.
+
+    AI mode runs async (returns a job_id to poll via /status/{job_id}) because
+    the OpenAI call is too slow to hold an HTTP connection open. CV mode is
+    fast, so it stays synchronous and returns the result inline.
+    """
+    is_cv = not (req.mode == "ai" and settings.openai_api_key)
+
+    # ── AI mode → kick off a background job, return immediately ──
+    if not is_cv:
+        job_id = _new_job()
+        _spawn(_run_ai_visualize(job_id, req))
+        return {"job_id": job_id, "status": "processing"}
+
+    # ── CV mode (fast, synchronous) ──
+    # Result cache — instant return for the exact same fabric+furniture combo.
+    combo_hash = hashlib.sha256(
+        f"{req.fabric_url}|{req.furniture_url}".encode()
+    ).hexdigest()[:16]
+    cached_result = RESULTS_DIR / f"viz_cache_{combo_hash}.jpg"
+    if cached_result.exists():
+        return {
+            "result_filename": cached_result.name,
+            "result_url": f"/uploads/results/{cached_result.name}",
+            "fabric_name": req.fabric_name,
+            "furniture_name": req.furniture_name,
+            "mode": "cv",
+            "pillow_fabric_name": "",
+        }
+
+    try:
+        fabric_path, furniture_path = await asyncio.gather(
+            download_image(req.fabric_url),
+            download_image(req.furniture_url),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to download images: {e}")
+
+    result_filename = apply_fabric_to_furniture(fabric_path, furniture_path)
+    # Save a copy under the combo hash for future cache hits.
+    try:
+        shutil.copy2(RESULTS_DIR / result_filename, cached_result)
+    except Exception:
+        pass  # Non-fatal
 
     return {
         "result_filename": result_filename,
         "result_url": f"/uploads/results/{result_filename}",
         "fabric_name": req.fabric_name,
         "furniture_name": req.furniture_name,
-        "mode": used_mode,
+        "mode": "cv",
         "pillow_fabric_name": req.pillow_fabric_name,
     }
 
@@ -106,23 +171,31 @@ class RefineRequest(BaseModel):
     prompt: str
 
 
+async def _run_refine(job_id: str, result_filename: str, prompt: str):
+    """Background worker for the (slow) OpenAI refine pass."""
+    try:
+        new_filename = await refine_with_openai(result_filename, prompt)
+        _JOBS[job_id].update(
+            status="done",
+            result_filename=new_filename,
+            result_url=f"/uploads/results/{new_filename}",
+        )
+    except FileNotFoundError:
+        _JOBS[job_id].update(status="error", error="Result image not found")
+    except Exception as e:
+        _JOBS[job_id].update(status="error", error=f"Refinement failed: {e}")
+
+
 @router.post("/refine")
 async def refine_visualization(req: RefineRequest):
-    """Apply a follow-up AI edit to an existing result image."""
+    """Apply a follow-up AI edit to an existing result image (async — poll /status)."""
     if not settings.openai_api_key:
         raise HTTPException(status_code=400, detail="OpenAI API key not configured")
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
-    try:
-        new_filename = await refine_with_openai(req.result_filename, req.prompt)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Result image not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Refinement failed: {e}")
-    return {
-        "result_filename": new_filename,
-        "result_url": f"/uploads/results/{new_filename}",
-    }
+    job_id = _new_job()
+    _spawn(_run_refine(job_id, req.result_filename, req.prompt.strip()))
+    return {"job_id": job_id, "status": "processing"}
 
 
 @router.post("/", response_model=VisualizationOut)
