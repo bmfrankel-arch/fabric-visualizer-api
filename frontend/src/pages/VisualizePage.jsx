@@ -13,6 +13,8 @@ export default function VisualizePage() {
   const [fabricTotal, setFabricTotal] = useState(0);
   const [fabricLoading, setFabricLoading] = useState(true);
   const [fabricLoadingMore, setFabricLoadingMore] = useState(false);
+  const [fabricRefreshing, setFabricRefreshing] = useState(false);
+  const [fabricReloadKey, setFabricReloadKey] = useState(0);
   const [selectedPattern, setSelectedPattern] = useState(null);
   const [selectedColorway, setSelectedColorway] = useState(null);
 
@@ -90,7 +92,7 @@ export default function VisualizePage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setFabricLoading(false));
-  }, [fabricSearch, fabricJacquard]);
+  }, [fabricSearch, fabricJacquard, fabricReloadKey]);
 
   // Load furniture when retailer or filters change
   useEffect(() => {
@@ -115,6 +117,20 @@ export default function VisualizePage() {
   const handleFabricSearch = (val) => {
     clearTimeout(fabricSearchTimer.current);
     fabricSearchTimer.current = setTimeout(() => setFabricSearch(val), 300);
+  };
+
+  // Pull the latest fabric library from the photo-host CDN, then reload the grid.
+  const handleRefreshFabrics = async () => {
+    setFabricRefreshing(true);
+    setError("");
+    try {
+      await api.refreshFabrics();
+      setFabricReloadKey((k) => k + 1);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setFabricRefreshing(false);
+    }
   };
 
   const handleFurnitureSearch = (val) => {
@@ -529,7 +545,17 @@ export default function VisualizePage() {
                 Cancel
               </button>
             ) : (
-              <span className="catalog-count">{fabricTotal} patterns</span>
+              <div className="catalog-header-actions">
+                <span className="catalog-count">{fabricTotal} patterns</span>
+                <button
+                  className="btn-secondary btn-sm"
+                  onClick={handleRefreshFabrics}
+                  disabled={fabricRefreshing}
+                  title="Refresh fabrics from the Dorell photo library"
+                >
+                  {fabricRefreshing ? "Refreshing…" : "↻ Refresh"}
+                </button>
+              </div>
             )}
           </div>
 

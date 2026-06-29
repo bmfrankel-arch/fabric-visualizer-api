@@ -593,6 +593,12 @@ input:focus, select:focus {
   color: var(--text-secondary);
 }
 
+.catalog-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .catalog-toolbar {
   display: flex;
   gap: 0.5rem;

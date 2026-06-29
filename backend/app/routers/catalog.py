@@ -8,8 +8,11 @@ and registering it in RETAILERS below.
 """
 
 import json
+import time
 import uuid
 import shutil
+import threading
+import urllib.request
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File
 from ..config import settings
@@ -32,27 +35,102 @@ DATA_DIR = Path(__file__).parent.parent
 # ── Dorell Fabrics ──────────────────────────────────────────────
 
 DORELL_IMAGE_BASE = "https://dorell-fabrics-cdn.netlify.app/images"
+# Shared photo host: the canonical fabric library for all Dorell apps. We read
+# it at runtime so newly-added fabrics appear without re-syncing/redeploying.
+PHOTO_HOST_LIBRARY = "https://dorell-fabrics-cdn.netlify.app/library.json"
+FABRICS_TTL = 900  # seconds — re-fetch from the photo host at most every 15 min
 
 _fabrics_cache = None
+_fabrics_cache_at = 0.0
+_fabrics_lock = threading.Lock()
 
 
-def _load_fabrics():
-    global _fabrics_cache
-    if _fabrics_cache is None:
-        with open(DATA_DIR / "dorell_fabrics.json") as f:
-            raw = json.load(f)
-        # Enrich with full image URLs and derived fields
-        for p in raw:
-            p["image_urls"] = [
-                f"{DORELL_IMAGE_BASE}/{p['slug']}/{img}" for img in p.get("images", [])
-            ]
-            # Primary thumbnail
-            p["thumbnail"] = p["image_urls"][0] if p["image_urls"] else ""
-            # Derive jacquard flag from description
-            desc = p.get("description", "").lower()
-            p["jacquard"] = "jacquard" in desc
-        _fabrics_cache = raw
-    return _fabrics_cache
+def _shape_from_library(raw: list[dict]) -> list[dict]:
+    """Reshape photo-host library.json records into this catalog's fabric shape.
+
+    Photo host record: {name, slug, description, content, durability, direction,
+                        cleanCode, ..., colors: [{name, filename, ...}]}
+    """
+    shaped = []
+    for rec in raw:
+        slug = rec.get("slug")
+        if not slug:
+            continue
+        images = [c["filename"] for c in rec.get("colors", []) if c.get("filename")]
+        shaped.append({
+            "name": rec.get("name", slug),
+            "slug": slug,
+            "description": rec.get("description", ""),
+            "content": rec.get("content", ""),
+            "durability": rec.get("durability", ""),
+            "direction": rec.get("direction", ""),
+            "cleanCode": rec.get("cleanCode", ""),
+            "images": images,
+        })
+    return shaped
+
+
+def _enrich(raw: list[dict]) -> list[dict]:
+    """Add full image URLs and derived fields to each fabric record."""
+    for p in raw:
+        p["image_urls"] = [
+            f"{DORELL_IMAGE_BASE}/{p['slug']}/{img}" for img in p.get("images", [])
+        ]
+        p["thumbnail"] = p["image_urls"][0] if p["image_urls"] else ""
+        desc = p.get("description", "").lower()
+        p["jacquard"] = "jacquard" in desc
+    return raw
+
+
+def _fetch_library() -> list[dict]:
+    with urllib.request.urlopen(PHOTO_HOST_LIBRARY, timeout=10) as r:
+        if r.status != 200:
+            raise RuntimeError(f"photo host returned HTTP {r.status}")
+        return json.loads(r.read())
+
+
+def _load_fabrics(force: bool = False):
+    """Return the enriched fabric list, refreshing from the photo host on a TTL.
+
+    Falls back to the last good cache, then to the bundled JSON, so the catalog
+    never goes empty even if the photo host is briefly unreachable.
+    """
+    global _fabrics_cache, _fabrics_cache_at
+    now = time.time()
+    if not force and _fabrics_cache is not None and (now - _fabrics_cache_at) < FABRICS_TTL:
+        return _fabrics_cache
+
+    with _fabrics_lock:
+        # Re-check after acquiring the lock — another request may have refreshed.
+        now = time.time()
+        if not force and _fabrics_cache is not None and (now - _fabrics_cache_at) < FABRICS_TTL:
+            return _fabrics_cache
+        try:
+            raw = _shape_from_library(_fetch_library())
+            if not raw:
+                raise RuntimeError("photo host returned no fabrics")
+            source = "photo-host"
+        except Exception as e:
+            if _fabrics_cache is not None:
+                # Keep serving the last good data; back off so we don't hammer.
+                print(f"[catalog] photo-host refresh failed, keeping cache: {e}")
+                _fabrics_cache_at = now
+                return _fabrics_cache
+            print(f"[catalog] photo-host fetch failed, using bundled JSON: {e}")
+            with open(DATA_DIR / "dorell_fabrics.json") as f:
+                raw = json.load(f)
+            source = "bundled"
+        _fabrics_cache = _enrich(raw)
+        _fabrics_cache_at = now
+        print(f"[catalog] loaded {len(_fabrics_cache)} fabrics from {source}")
+        return _fabrics_cache
+
+
+@router.post("/refresh")
+def refresh_fabrics():
+    """Force an immediate re-fetch of the fabric library from the photo host."""
+    fabrics = _load_fabrics(force=True)
+    return {"refreshed": True, "count": len(fabrics)}
 
 
 @router.get("/fabrics")

@@ -97,6 +97,9 @@ export const api = {
   catalogFurnitureFilters: (retailer) =>
     request(`/api/catalog/furniture/${retailer}/filters`),
 
+  // Force the backend to re-pull the fabric library from the photo-host CDN.
+  refreshFabrics: () => request("/api/catalog/refresh", { method: "POST" }),
+
   // Poll an async AI job (visualize/refine) until it finishes.
   // The server runs slow OpenAI work in the background and returns a job_id;
   // we poll /status until it's done rather than holding one long request open.
